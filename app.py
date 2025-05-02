@@ -102,18 +102,18 @@ def analyze_saju_with_llm(prompt, messages=None, stream=True):
         # OpenAI API 호출
         if stream:
             response = openai.ChatCompletion.create(
-                model="gpt-4",
+                model="gpt-4.1",
                 messages=conversation,
                 temperature=0.7,
-                max_tokens=8000,
+                max_tokens=32,768,
                 stream=True
             )
         else:
             response = openai.ChatCompletion.create(
-                model="gpt-4",
+                model="gpt-4.1",
                 messages=conversation,
                 temperature=0.7,
-                max_tokens=8000,
+                max_tokens=32,768,
                 stream=False
             )
             return response.choices[0].message.content
