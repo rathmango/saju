@@ -76,7 +76,17 @@ def analyze_saju_with_llm(prompt, messages=None, stream=True):
         if not OPENAI_API_KEY:
             return "API 키가 설정되지 않았습니다. .env 파일에 OPENAI_API_KEY를 설정해주세요."
         
-        client = OpenAI(api_key=OPENAI_API_KEY)
+        # 클라이언트 생성 시 try-except 블록으로 감싸서 버전 호환성 문제 해결
+        try:
+            client = OpenAI(api_key=OPENAI_API_KEY)
+        except TypeError as e:
+            # proxies 인자 문제가 발생한 경우
+            if "proxies" in str(e):
+                # 환경 변수로 직접 설정
+                os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
+                client = OpenAI()
+            else:
+                raise e
         
         conversation = []
         
