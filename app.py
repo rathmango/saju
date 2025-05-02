@@ -1377,9 +1377,24 @@ else:
         padding: 15px;
         border-radius: 10px;
         margin-bottom: 15px;
-        background-color: white;
+        background-color: var(--background-color, white);
+        color: var(--text-color, black);
         box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
     }
+    
+    /* 라이트 모드 */
+    [data-theme="light"] .chat-container {
+        background-color: white;
+        color: #333333;
+    }
+    
+    /* 다크 모드 */
+    [data-theme="dark"] .chat-container {
+        background-color: #262730;
+        color: #ffffff;
+        border: 1px solid #555555;
+    }
+    
     .user-message {
         border-left: 5px solid #1890ff;
     }
