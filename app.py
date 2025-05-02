@@ -1058,6 +1058,8 @@ if submit_button:
         # 보정 결과 안내 메시지
         adjustment_message = format_time_adjustment(original_time, adjusted_time)
         
+        st.success("사주 계산을 시작합니다. 입력값: " + str(adjusted_year) + "년 " + str(adjusted_month) + "월 " + str(adjusted_day) + "일 " + str(adjusted_hour) + "시 " + str(gender))
+        
         # 보정된 시간으로 사주 계산
         saju_data = calculate_saju(
             adjusted_year, adjusted_month, adjusted_day, adjusted_hour, gender, is_lunar
@@ -1126,7 +1128,9 @@ if submit_button:
         st.table(major_fortunes_df)
     
     except Exception as e:
+        import traceback
         st.error(f"사주 계산 중 오류가 발생했습니다: {str(e)}")
+        st.error(f"오류 상세 정보: {traceback.format_exc()}")
     
     st.markdown("""
     **참고 사항**:
