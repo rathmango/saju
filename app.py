@@ -57,8 +57,10 @@ def stream_response(response, message_placeholder):
     
     # 응답이 문자열인 경우 (오류 메시지 등)
     if isinstance(response, str):
+        # HTML 태그 이스케이프 처리
+        safe_response = response.replace("<", "&lt;").replace(">", "&gt;")
         # 마크다운 대신 일반 텍스트로 표시 (HTML 해석 방지)
-        response_area.text(response)
+        response_area.text(safe_response)
         return response
     
     # 스트리밍 응답인 경우 (requests 스트리밍 응답)
@@ -77,11 +79,16 @@ def stream_response(response, message_placeholder):
                                 content = chunk['choices'][0]['delta']['content']
                                 if content:
                                     full_response += content
-                                    response_area.text(full_response)
+                                    # HTML 태그 이스케이프 처리하여 표시
+                                    safe_response = full_response.replace("<", "&lt;").replace(">", "&gt;")
+                                    response_area.text(safe_response)
                     except json.JSONDecodeError:
                         continue
     except Exception as e:
-        response_area.text(f"응답 처리 중 오류가 발생했습니다: {str(e)}\n\n원본 응답: {response.text if hasattr(response, 'text') else '응답 내용 없음'}")
+        error_msg = f"응답 처리 중 오류가 발생했습니다: {str(e)}\n\n원본 응답: {response.text if hasattr(response, 'text') else '응답 내용 없음'}"
+        # 오류 메시지도 HTML 태그 이스케이프 처리
+        safe_error = error_msg.replace("<", "&lt;").replace(">", "&gt;")
+        response_area.text(safe_error)
     
     return full_response
 
@@ -843,11 +850,14 @@ else:
         # 메시지 표시
         for msg in st.session_state.messages:
             if msg["role"] == "user":
-                st.markdown(f"<div class='chat-container user-message'>👤 **나**: {msg['content']}</div>", unsafe_allow_html=True)
+                # 사용자 메시지에서 HTML 태그 이스케이프 처리
+                escaped_content = msg["content"].replace("<", "&lt;").replace(">", "&gt;")
+                st.markdown(f"<div class='chat-container user-message'>👤 **나**: {escaped_content}</div>", unsafe_allow_html=True)
             else:
                 # 마크다운 렌더링 개선
-                # 사용자 응답에서 하이픈(-) 문제 해결
+                # 사용자 응답에서 하이픈(-) 문제 해결 및 HTML 태그 이스케이프 처리
                 content = msg["content"].replace("\n- ", "\n• ").replace("- ", "• ")
+                content = content.replace("<", "&lt;").replace(">", "&gt;")
                 st.markdown(f"<div class='chat-container assistant-message'>🔮 **사주 분석가**: {content}</div>", unsafe_allow_html=True)
     
     # 입력 영역 (하단에 고정)
