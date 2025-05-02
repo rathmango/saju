@@ -891,7 +891,7 @@ else:
         - 일간: {saju_data['일간']}
         - 오행 분포: {saju_data['오행개수']}
         - 십이운성: {saju_data['십이운성']}
-        - 대운: {saju_data['대운'][:3]}
+        - 대운: {saju_data['대운']}
         
         반드시 아래의 '분석 가이드라인' 전체 내용을 참고하여 답변하세요:
         - 분석 가이드라인:
@@ -979,7 +979,7 @@ else:
                 - 일간: {saju_data['일간']}
                 - 오행 분포: {saju_data['오행개수']}
                 - 십이운성: {saju_data['십이운성']}
-                - 대운: {saju_data['대운'][:3]}
+                - 대운: {saju_data['대운']}
                 
                 다음은 사주 분석 가이드라인입니다:
                 {st.session_state.analysis_guide}
