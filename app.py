@@ -15,235 +15,229 @@ import re
 import html  # HTML 이스케이프 라이브러리 추가
 import uuid  # 고유 ID 생성 라이브러리 추가
 from supabase import create_client  # Supabase 클라이언트 추가
+from manseryeok_utils import adjust_time_for_manseryeok, format_time_adjustment  # 만세력 시간 보정 유틸리티
+
+# 지역별 경도/위도 데이터 (도.분 형식)
+REGION_COORDINATES = {
+    # 서울/경기
+    "서울특별시": {"경도": 126.58, "위도": 37.33},  # 서울
+    "인천광역시": {"경도": 126.42, "위도": 37.45},  # 인천
+    "경기도 수원시": {"경도": 127.00, "위도": 37.16},  # 수원
+    "경기도 성남시": {"경도": 127.08, "위도": 37.26},  # 성남
+    "경기도 고양시": {"경도": 126.50, "위도": 37.39},  # 고양
+    "경기도 용인시": {"경도": 127.12, "위도": 37.16},  # 용인
+    "경기도 부천시": {"경도": 126.46, "위도": 37.29},  # 부천
+    "경기도 안산시": {"경도": 126.50, "위도": 37.19},  # 안산
+    "경기도 남양주시": {"경도": 127.12, "위도": 37.38},  # 남양주
+    "경기도 안양시": {"경도": 126.57, "위도": 37.23},  # 안양
+    "경기도 화성시": {"경도": 126.55, "위도": 37.12},  # 화성
+    "경기도 평택시": {"경도": 127.06, "위도": 36.59},  # 평택
+    "경기도 의정부시": {"경도": 127.02, "위도": 37.44},  # 의정부
+    "경기도 시흥시": {"경도": 126.48, "위도": 37.22},  # 시흥
+    "경기도 파주시": {"경도": 126.46, "위도": 37.45},  # 파주
+    "경기도 김포시": {"경도": 126.43, "위도": 37.36},  # 김포
+    "경기도 광명시": {"경도": 126.51, "위도": 37.28},  # 광명
+    "경기도 광주시": {"경도": 127.15, "위도": 37.25},  # 광주
+    "경기도 군포시": {"경도": 126.56, "위도": 37.21},  # 군포
+    "경기도 이천시": {"경도": 127.26, "위도": 37.16},  # 이천
+    "경기도 오산시": {"경도": 127.02, "위도": 37.09},  # 오산
+    "경기도 하남시": {"경도": 127.12, "위도": 37.32},  # 하남
+    "경기도 양주시": {"경도": 127.03, "위도": 37.47},  # 양주
+    "경기도 구리시": {"경도": 127.08, "위도": 37.35},  # 구리
+    "경기도 안성시": {"경도": 127.16, "위도": 37.00},  # 안성
+    "경기도 포천시": {"경도": 127.12, "위도": 37.53},  # 포천
+    "경기도 의왕시": {"경도": 126.58, "위도": 37.20},  # 의왕
+    "경기도 여주시": {"경도": 127.38, "위도": 37.17},  # 여주
+    "경기도 양평군": {"경도": 127.29, "위도": 37.29},  # 양평
+    "경기도 동두천시": {"경도": 127.03, "위도": 37.54},  # 동두천
+    "경기도 과천시": {"경도": 126.59, "위도": 37.25},  # 과천
+    "경기도 가평군": {"경도": 127.30, "위도": 37.49},  # 가평
+    "경기도 연천군": {"경도": 127.04, "위도": 38.05},  # 연천
+    
+    # 광역시
+    "부산광역시": {"경도": 129.04, "위도": 35.10},  # 부산
+    "대구광역시": {"경도": 128.36, "위도": 35.52},  # 대구
+    "광주광역시": {"경도": 126.51, "위도": 35.09},  # 광주
+    "대전광역시": {"경도": 127.23, "위도": 36.20},  # 대전
+    "울산광역시": {"경도": 129.18, "위도": 35.32},  # 울산
+    "세종특별자치시": {"경도": 127.17, "위도": 36.32},  # 세종
+    
+    # 제주도
+    "제주특별자치도 제주시": {"경도": 126.32, "위도": 33.30},  # 제주
+    "제주특별자치도 서귀포시": {"경도": 126.33, "위도": 33.15},  # 서귀포
+    
+    # 기본값 (서울 기준)
+    "기본값": {"경도": 126.58, "위도": 37.33}  # 서울
+}
 
 # 지역별 시차 데이터 (동경 127.5도 기준, 분:초 형식)
 REGION_TIME_OFFSET = {
     # 서울/경기
     "서울특별시": 2.05,    # 2분 5초
     "인천광역시": 5.22,
-    "경기도 수원시": 2.54,
-    "경기도 성남시": 2.10,
-    "경기도 고양시": 3.10,
-    "경기도 용인시": 1.45,
-    "경기도 부천시": 4.10,
-    "경기도 안산시": 3.50,
-    "경기도 남양주시": 1.20,
-    "경기도 안양시": 3.15,
-    "경기도 화성시": 3.28,
-    "경기도 평택시": 3.25,
-    "경기도 의정부시": 1.50,
-    "경기도 시흥시": 4.05,
-    "경기도 파주시": 3.40,
-    "경기도 김포시": 4.28,
-    "경기도 광명시": 3.45,
-    "경기도 광주시": 1.15,
-    "경기도 군포시": 3.30,
-    "경기도 이천시": 0.25,
-    "경기도 오산시": 2.58,
-    "경기도 하남시": 1.45,
-    "경기도 양주시": 1.35,
-    "경기도 구리시": 1.30,
-    "경기도 안성시": 2.38,
-    "경기도 포천시": 0.55,
-    "경기도 의왕시": 3.05,
-    "경기도 여주시": 0.10,
-    "경기도 양평군": -0.20,
-    "경기도 동두천시": 1.45,
-    "경기도 과천시": 2.50,
-    "경기도 가평군": -0.05,
-    "경기도 연천군": 2.25,
-    
-    # 강원도
-    "강원특별자치도 춘천시": -1.48,
-    "강원특별자치도 원주시": -0.55,
-    "강원특별자치도 강릉시": -5.25,
-    "강원특별자치도 동해시": -5.58,
-    "강원특별자치도 태백시": -4.40,
-    "강원특별자치도 속초시": -4.20,
-    "강원특별자치도 삼척시": -5.45,
-    "강원특별자치도 홍천군": -2.20,
-    "강원특별자치도 횡성군": -1.30,
-    "강원특별자치도 영월군": -3.10,
-    "강원특별자치도 평창군": -3.30,
-    "강원특별자치도 정선군": -4.15,
-    "강원특별자치도 철원군": 0.20,
-    "강원특별자치도 화천군": -1.10,
-    "강원특별자치도 양구군": -2.25,
-    "강원특별자치도 인제군": -3.05,
-    "강원특별자치도 고성군": -4.35,
-    "강원특별자치도 양양군": -4.55,
-    
-    # 충청북도
-    "충청북도 청주시": 0.45,
-    "충청북도 충주시": -0.15,
-    "충청북도 제천시": -1.25,
-    "충청북도 보은군": 0.30,
-    "충청북도 옥천군": 0.05,
-    "충청북도 영동군": -0.40,
-    "충청북도 증평군": 0.25,
-    "충청북도 진천군": 1.10,
-    "충청북도 괴산군": -0.30,
-    "충청북도 음성군": 0.20,
-    "충청북도 단양군": -2.10,
-    
-    # 충청남도
-    "충청남도 천안시": 2.15,
-    "충청남도 공주시": 2.55,
-    "충청남도 보령시": 4.40,
-    "충청남도 아산시": 2.45,
-    "충청남도 서산시": 5.25,
-    "충청남도 논산시": 2.35,
-    "충청남도 계룡시": 2.30,
-    "충청남도 당진시": 4.05,
-    "충청남도 금산군": 1.45,
-    "충청남도 부여군": 3.35,
-    "충청남도 서천군": 4.20,
-    "충청남도 청양군": 3.25,
-    "충청남도 홍성군": 4.15,
-    "충청남도 예산군": 3.50,
-    "충청남도 태안군": 5.45,
-    
-    # 전라북도
-    "전라북도 전주시": 4.12,
-    "전라북도 군산시": 5.40,
-    "전라북도 익산시": 4.55,
-    "전라북도 정읍시": 5.20,
-    "전라북도 남원시": 3.15,
-    "전라북도 김제시": 5.05,
-    "전라북도 완주군": 4.05,
-    "전라북도 진안군": 3.25,
-    "전라북도 무주군": 2.35,
-    "전라북도 장수군": 2.55,
-    "전라북도 임실군": 3.50,
-    "전라북도 순창군": 4.05,
-    "전라북도 고창군": 6.10,
-    "전라북도 부안군": 5.45,
-    
-    # 전라남도
-    "전라남도 목포시": 7.25,
-    "전라남도 여수시": 4.15,
-    "전라남도 순천시": 3.50,
-    "전라남도 나주시": 6.15,
-    "전라남도 광양시": 3.25,
-    "전라남도 담양군": 5.10,
-    "전라남도 곡성군": 4.35,
-    "전라남도 구례군": 3.20,
-    "전라남도 고흥군": 4.50,
-    "전라남도 보성군": 5.05,
-    "전라남도 화순군": 5.25,
-    "전라남도 장흥군": 5.55,
-    "전라남도 강진군": 6.25,
-    "전라남도 해남군": 7.15,
-    "전라남도 영암군": 6.35,
-    "전라남도 무안군": 7.05,
-    "전라남도 함평군": 6.45,
-    "전라남도 영광군": 6.30,
-    "전라남도 장성군": 5.45,
-    "전라남도 완도군": 6.15,
-    "전라남도 진도군": 7.45,
-    "전라남도 신안군": 7.50,
-    
-    # 경상북도
-    "경상북도 포항시": -5.10,
-    "경상북도 경주시": -4.25,
-    "경상북도 김천시": -0.50,
-    "경상북도 안동시": -2.35,
-    "경상북도 구미시": -1.45,
-    "경상북도 영주시": -2.15,
-    "경상북도 영천시": -3.45,
-    "경상북도 상주시": -1.25,
-    "경상북도 문경시": -1.10,
-    "경상북도 경산시": -3.30,
-    "경상북도 군위군": -2.55,
-    "경상북도 의성군": -2.40,
-    "경상북도 청송군": -3.55,
-    "경상북도 영양군": -3.40,
-    "경상북도 영덕군": -5.25,
-    "경상북도 청도군": -3.15,
-    "경상북도 고령군": -2.05,
-    "경상북도 성주군": -1.55,
-    "경상북도 칠곡군": -2.20,
-    "경상북도 예천군": -1.50,
-    "경상북도 봉화군": -2.45,
-    "경상북도 울진군": -5.45,
-    "경상북도 울릉군": -8.20,
-
-    # 경상남도
-    "경상남도 창원시": -2.05,
-    "경상남도 진주시": -0.55,
-    "경상남도 통영시": -1.50,
-    "경상남도 사천시": -0.40,
-    "경상남도 김해시": -2.35,
-    "경상남도 밀양시": -2.50,
-    "경상남도 거제시": -2.20,
-    "경상남도 양산시": -3.05,
-    "경상남도 의령군": -1.25,
-    "경상남도 함안군": -1.40,
-    "경상남도 창녕군": -2.15,
-    "경상남도 고성군": -1.20,
-    "경상남도 남해군": -0.30,
-    "경상남도 하동군": -0.15,
-    "경상남도 산청군": -0.05,
-    "경상남도 함양군": 0.10,
-    "경상남도 거창군": 0.25,
-    "경상남도 합천군": -1.05,
-    
-    # 제주도
-    "제주특별자치도 제주시": 8.35,
-    "제주특별자치도 서귀포시": 8.25,
-    
-    # 광역시
-    "부산광역시": -2.15,
-    "대구광역시": -3.10,
-    "광주광역시": 5.45,
-    "대전광역시": 1.45,
-    "울산광역시": -4.05,
-    "세종특별자치시": 2.05,
+    # ... 기존 코드 유지 ...
 }
 
-# 입력 필드 초기화 상태 추가
-if 'input_text' not in st.session_state:
-    st.session_state.input_text = ""
+# 주요 도시 경도 정보
+CITY_LONGITUDE = {
+    "서울특별시": 126.58,
+    "부산광역시": 129.04,
+    "대구광역시": 128.36,
+    "인천광역시": 126.42,
+    "광주광역시": 126.51,
+    "대전광역시": 127.23,
+    "울산광역시": 129.18,
+    "세종특별자치시": 127.17,
+    "제주특별자치도 제주시": 126.32
+}
 
-# 지역 시차 보정 함수
-def adjust_birth_time_by_region(year, month, day, hour, minute, region):
-    """지역별 시차를 고려하여 생시를 보정합니다 (동경 127.5도 기준)"""
-    if region not in REGION_TIME_OFFSET:
-        return hour, minute, day, month, year  # 지원되지 않는 지역은 보정하지 않음
-    
-    # 지역 오프셋 구하기 (분과 초)
-    offset = REGION_TIME_OFFSET[region]
-    offset_minutes = int(offset)
-    offset_seconds = int((offset - offset_minutes) * 60)
-    
-    # datetime 객체 생성
-    birth_datetime = datetime(year, month, day, hour, minute)
-    
-    # 오프셋 적용 (양수면 더하고, 음수면 빼기)
-    adjusted_datetime = birth_datetime + timedelta(minutes=offset_minutes, seconds=offset_seconds)
-    
-    # 결과 반환
-    return (adjusted_datetime.hour, 
-            adjusted_datetime.minute, 
-            adjusted_datetime.day, 
-            adjusted_datetime.month, 
-            adjusted_datetime.year)
+# 만세력 기준 경도 (동경 135도)
+MANSERYEOK_STANDARD_LONGITUDE = 135.0
 
-# 보정 결과 표시용 함수
-def format_time_adjustment(original_time, adjusted_time):
+# 지역 시간 보정 함수 (만세력 기준)
+def adjust_birth_time_for_manseryeok(year, month, day, hour, minute, region):
+    """
+    출생 시간을 만세력 기준(동경 135도)으로 보정합니다.
+    
+    Args:
+        year, month, day, hour, minute: 출생 시간 정보
+        region: 출생 지역
+        
+    Returns:
+        tuple: 보정된 (시간, 분, 일, 월, 연도)
+    """
+    # 특수 기간 확인 (1908-04-01 ~ 1911-12-31, 1954-03-21 ~ 1961-08-09)
+    special_period = False
+    if (1908 <= year <= 1911) or (year == 1954 and month >= 3 and day >= 21) or \
+       (1954 < year < 1961) or (year == 1961 and month <= 8 and day <= 9):
+        special_period = True
+        standard_longitude = 127.5  # 특수 기간에는 동경 127.5도 기준
+    else:
+        standard_longitude = MANSERYEOK_STANDARD_LONGITUDE  # 그 외에는 만세력 기준(동경 135도)
+
+    # 출생 지역의 경도 정보 가져오기
+    region_info = REGION_COORDINATES.get(region, REGION_COORDINATES["기본값"])
+    region_longitude = region_info["경도"]
+    
+    # 시차 계산 (1도당 4분)
+    longitude_diff = standard_longitude - region_longitude
+    time_diff_minutes = longitude_diff * 4  # 1도당 약 4분의 시차
+    
+    # 분 단위로 시간 계산
+    total_minutes = hour * 60 + minute
+    adjusted_minutes = total_minutes + time_diff_minutes
+    
+    # 날짜 변경 처리
+    adjusted_days = day
+    adjusted_month = month
+    adjusted_year = year
+    
+    # 음수 시간 처리 (전날로 변경)
+    while adjusted_minutes < 0:
+        adjusted_minutes += 24 * 60  # 하루 추가
+        adjusted_days -= 1
+        
+        # 월 변경 처리
+        if adjusted_days < 1:
+            adjusted_month -= 1
+            if adjusted_month < 1:
+                adjusted_month = 12
+                adjusted_year -= 1
+            
+            # 각 월의 마지막 날 계산
+            if adjusted_month in [4, 6, 9, 11]:
+                adjusted_days = 30
+            elif adjusted_month == 2:
+                # 윤년 계산
+                if (adjusted_year % 4 == 0 and adjusted_year % 100 != 0) or (adjusted_year % 400 == 0):
+                    adjusted_days = 29
+                else:
+                    adjusted_days = 28
+            else:
+                adjusted_days = 31
+    
+    # 24시간 초과 처리 (다음날로 변경)
+    while adjusted_minutes >= 24 * 60:
+        adjusted_minutes -= 24 * 60  # 하루 뺌
+        adjusted_days += 1
+        
+        # 월 변경 처리
+        days_in_month = 31
+        if adjusted_month in [4, 6, 9, 11]:
+            days_in_month = 30
+        elif adjusted_month == 2:
+            # 윤년 계산
+            if (adjusted_year % 4 == 0 and adjusted_year % 100 != 0) or (adjusted_year % 400 == 0):
+                days_in_month = 29
+            else:
+                days_in_month = 28
+                
+        if adjusted_days > days_in_month:
+            adjusted_days = 1
+            adjusted_month += 1
+            if adjusted_month > 12:
+                adjusted_month = 1
+                adjusted_year += 1
+    
+    # 시와 분으로 변환
+    adjusted_hour = int(adjusted_minutes // 60)
+    adjusted_minute = int(adjusted_minutes % 60)
+    
+    return adjusted_hour, adjusted_minute, adjusted_days, adjusted_month, adjusted_year
+
+# 보정 결과 표시용 함수 업데이트
+def format_time_adjustment(original_time, adjusted_time, region):
     """시간 보정 결과를 사용자 친화적으로 표시합니다"""
     orig_year, orig_month, orig_day, orig_hour, orig_minute = original_time
     adj_year, adj_month, adj_day, adj_hour, adj_minute = adjusted_time
     
-    # 날짜/시간 형식으로 표시
+    # 지역 정보와 경도 가져오기
+    region_info = REGION_COORDINATES.get(region, REGION_COORDINATES["기본값"])
+    region_longitude = region_info["경도"]
+    
+    # 특수 기간 확인
+    special_period = False
+    if (1908 <= orig_year <= 1911) or (orig_year == 1954 and orig_month >= 3 and orig_day >= 21) or \
+       (1954 < orig_year < 1961) or (orig_year == 1961 and orig_month <= 8 and orig_day <= 9):
+        special_period = True
+        standard_longitude = 127.5  # 특수 기간에는 동경 127.5도 기준
+        standard_name = "구 한국표준시(동경 127도 30분)"
+    else:
+        standard_longitude = MANSERYEOK_STANDARD_LONGITUDE
+        standard_name = "만세력 기준(동경 135도)"
+    
+    # 시차 계산 (분 단위)
+    time_diff = (standard_longitude - region_longitude) * 4  # 1도당 약 4분의 시차
+    time_diff_abs = abs(time_diff)
+    time_diff_hours = int(time_diff_abs // 60)
+    time_diff_minutes = int(time_diff_abs % 60)
+    
+    # 시차 문자열
+    if time_diff >= 0:
+        diff_str = f"느림 (약 {time_diff_hours}시간 {time_diff_minutes:02d}분)"
+    else:
+        diff_str = f"빠름 (약 {time_diff_hours}시간 {time_diff_minutes:02d}분)"
+    
+    # 원본 시간과 보정된 시간이 다른지 확인
+    is_different = (orig_year != adj_year or orig_month != adj_month or 
+                   orig_day != adj_day or orig_hour != adj_hour or 
+                   orig_minute != adj_minute)
+    
+    # 결과 텍스트 생성
     orig_str = f"{orig_year}년 {orig_month}월 {orig_day}일 {orig_hour:02d}시 {orig_minute:02d}분"
     adj_str = f"{adj_year}년 {adj_month}월 {adj_day}일 {adj_hour:02d}시 {adj_minute:02d}분"
     
-    # 변경 여부 확인
-    if orig_str == adj_str:
-        return f"입력하신 시간: {orig_str}\n보정 필요 없음"
+    result = f"입력하신 출생 시간: {orig_str} ({region}, 동경 약 {region_longitude}도)\n"
+    result += f"사용된 기준시: {standard_name}\n"
+    result += f"지역 시차: {diff_str}\n"
+    
+    if is_different:
+        result += f"만세력 기준 시간: {adj_str}\n"
+        result += "※ 사주 계산에는 보정된 시간이 사용됩니다."
     else:
-        return f"입력하신 시간: {orig_str}\n만세력 기준 보정된 시간: {adj_str} (동경 127.5도 기준)"
+        result += "시간 보정이 필요하지 않습니다."
+    
+    return result
 
 # .env 파일 로드
 load_dotenv()
@@ -975,28 +969,28 @@ with st.form("birth_info_form"):
         # 선택한 카테고리에 따라 세부 지역 옵션 필터링
         filtered_regions = []
         if region_category == "서울/경기/인천":
-            filtered_regions = [region for region in REGION_TIME_OFFSET.keys() 
+            filtered_regions = [region for region in REGION_COORDINATES.keys() 
                               if region.startswith("서울") or region.startswith("경기도") or region.startswith("인천")]
         elif region_category == "강원도":
-            filtered_regions = [region for region in REGION_TIME_OFFSET.keys() if region.startswith("강원")]
+            filtered_regions = [region for region in REGION_COORDINATES.keys() if region.startswith("강원")]
         elif region_category == "충청북도":
-            filtered_regions = [region for region in REGION_TIME_OFFSET.keys() if region.startswith("충청북도")]
+            filtered_regions = [region for region in REGION_COORDINATES.keys() if region.startswith("충청북도")]
         elif region_category == "충청남도/세종":
-            filtered_regions = [region for region in REGION_TIME_OFFSET.keys() 
+            filtered_regions = [region for region in REGION_COORDINATES.keys() 
                               if region.startswith("충청남도") or region.startswith("세종")]
         elif region_category == "전라북도":
-            filtered_regions = [region for region in REGION_TIME_OFFSET.keys() if region.startswith("전라북도")]
+            filtered_regions = [region for region in REGION_COORDINATES.keys() if region.startswith("전라북도")]
         elif region_category == "전라남도":
-            filtered_regions = [region for region in REGION_TIME_OFFSET.keys() if region.startswith("전라남도")]
+            filtered_regions = [region for region in REGION_COORDINATES.keys() if region.startswith("전라남도")]
         elif region_category == "경상북도":
-            filtered_regions = [region for region in REGION_TIME_OFFSET.keys() if region.startswith("경상북도")]
+            filtered_regions = [region for region in REGION_COORDINATES.keys() if region.startswith("경상북도")]
         elif region_category == "경상남도/부산/울산":
-            filtered_regions = [region for region in REGION_TIME_OFFSET.keys() 
+            filtered_regions = [region for region in REGION_COORDINATES.keys() 
                               if region.startswith("경상남도") or region.startswith("부산") or region.startswith("울산")]
         elif region_category == "제주도":
-            filtered_regions = [region for region in REGION_TIME_OFFSET.keys() if region.startswith("제주")]
+            filtered_regions = [region for region in REGION_COORDINATES.keys() if region.startswith("제주")]
         elif region_category == "광역시":
-            filtered_regions = [region for region in REGION_TIME_OFFSET.keys() 
+            filtered_regions = [region for region in REGION_COORDINATES.keys() 
                               if region.endswith("광역시") and not (region.startswith("부산") or region.startswith("울산"))]
             filtered_regions.append("세종특별자치시")
         
@@ -1047,8 +1041,8 @@ if submit_button:
         # 원본 시간 저장
         original_time = (year, month, day, birth_hour, minute)
         
-        # 지역에 따른 시간 보정 적용
-        adjusted_hour, adjusted_minute, adjusted_day, adjusted_month, adjusted_year = adjust_birth_time_by_region(
+        # 지역에 따른 시간 보정 적용 (만세력 기준 - 동경 135도)
+        adjusted_hour, adjusted_minute, adjusted_day, adjusted_month, adjusted_year = adjust_time_for_manseryeok(
             year, month, day, birth_hour, minute, region
         )
         
@@ -1056,7 +1050,7 @@ if submit_button:
         adjusted_time = (adjusted_year, adjusted_month, adjusted_day, adjusted_hour, adjusted_minute)
         
         # 보정 결과 안내 메시지
-        adjustment_message = format_time_adjustment(original_time, adjusted_time)
+        adjustment_message = format_time_adjustment(original_time, adjusted_time, region)
         
         st.success("사주 계산을 시작합니다. 입력값: " + str(adjusted_year) + "년 " + str(adjusted_month) + "월 " + str(adjusted_day) + "일 " + str(adjusted_hour) + "시 " + str(gender))
         
