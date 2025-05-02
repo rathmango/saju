@@ -309,7 +309,10 @@ def log_conversation(user_input, assistant_response):
         # 사용자 정보 추출 (사주 데이터가 있는 경우)
         user_info = {}
         if 'saju_data' in st.session_state and st.session_state.saju_data:
-            original_info = st.session_state.saju_data.get("원본정보", {})
+            saju_data = st.session_state.saju_data
+            
+            # 기본 정보
+            original_info = saju_data.get("원본정보", {})
             if isinstance(original_info, dict):
                 user_info = {
                     "year": original_info.get("year", ""),
@@ -319,6 +322,35 @@ def log_conversation(user_input, assistant_response):
                     "gender": original_info.get("gender", ""),
                     "is_lunar": original_info.get("is_lunar", False)
                 }
+            
+            # 분 정보 추가
+            if "원본시간" in saju_data:
+                user_info["minute"] = saju_data["원본시간"].get("minute", "")
+            
+            # 지역 정보 추가
+            if "지역" in saju_data:
+                region = saju_data["지역"]
+                user_info["region"] = region
+                
+                # 광역 지역 추출 
+                if region.startswith("서울") or region.startswith("부산") or region.startswith("대구") or \
+                   region.startswith("인천") or region.startswith("광주") or region.startswith("대전") or \
+                   region.startswith("울산") or region.startswith("세종"):
+                    user_info["region_metro"] = region.split()[0]  # 첫 번째 단어 (예: "서울특별시")
+                elif " " in region:
+                    user_info["region_metro"] = region.split()[0]  # 첫 번째 단어 (예: "경기도")
+                    user_info["region_city"] = region  # 전체 지역
+                else:
+                    user_info["region_metro"] = region
+            
+            # 만세력 보정 시간 추가
+            if "보정시간" in saju_data:
+                adjusted = saju_data["보정시간"]
+                user_info["adjusted_year"] = adjusted.get("year", "")
+                user_info["adjusted_month"] = adjusted.get("month", "")
+                user_info["adjusted_day"] = adjusted.get("day", "")
+                user_info["adjusted_hour"] = adjusted.get("hour", "")
+                user_info["adjusted_minute"] = adjusted.get("minute", "")
         
         # 메타데이터 추가
         metadata = {
@@ -328,6 +360,7 @@ def log_conversation(user_input, assistant_response):
         
         # 디버깅: 로깅 시도 출력
         print(f"로깅 시도: session_id={st.session_state.session_id}, 메시지 길이={len(user_input)}/{len(assistant_response)}")
+        print(f"로깅 사용자 정보: {user_info}")
         
         # Supabase에 데이터 삽입
         result = supabase.table("saju_conversations").insert({
