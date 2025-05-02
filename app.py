@@ -935,22 +935,8 @@ else:
         white-space: pre-wrap;
         overflow-wrap: break-word;
         font-size: 16px;
-        line-height: 1.5;
-    }
-    /* 추가된 스타일: 줄간격 조정 */
-    .chat-msg-content p {
-        margin-bottom: 0.5em;
-    }
-    .chat-msg-content ul, .chat-msg-content ol {
-        margin-top: 0.5em;
-        margin-bottom: 0.5em;
-        padding-left: 1.5em;
-    }
-    .chat-msg-content li {
-        margin-bottom: 0.3em;
-    }
-    .chat-msg-content hr {
-        margin: 0.5em 0;
+        line-height: 1.7;
+        margin-top: 8px;
     }
     .stTextArea textarea {
         font-size: 16px;
@@ -994,32 +980,33 @@ else:
                 msg_content = msg.get("content", "")
                 msg_id = msg.get("id", str(uuid.uuid4()))
                 
+                if not msg_content:  # 내용이 없으면 표시하지 않음
+                    continue
+                    
+                # 메시지 내용을 안전하게 이스케이프하고 줄바꿈 처리
+                safe_content = html.escape(msg_content).replace('\n', '<br/>')
+                    
                 if msg_role == "user":
-                    # 사용자 메시지 전처리
-                    processed_content = preprocess_markdown(msg_content)
+                    # 사용자 메시지 표시
                     st.markdown(f"""
                     <div class="chat-container user-message" id="msg_{msg_id}">
                         <strong>👤 나:</strong>
-                        <div class="chat-msg-content">{processed_content}</div>
+                        <div class="chat-msg-content">{safe_content}</div>
                     </div>
                     """, unsafe_allow_html=True)
                 elif msg_role == "assistant":
-                    # 어시스턴트 메시지 전처리
-                    processed_content = preprocess_markdown(msg_content)
-                    # 줄바꿈을 HTML <br> 태그로 변환
-                    processed_content = processed_content.replace('\n', '<br>')
-                    # 목록 형식은 별도로 처리
-                    processed_content = processed_content.replace('<br>• ', '<br><span style="display:inline-block;width:10px;">• </span>')
-                    
+                    # 어시스턴트 메시지 표시
                     st.markdown(f"""
                     <div class="chat-container assistant-message" id="msg_{msg_id}">
                         <strong>🔮 사주 분석가:</strong>
-                        <div class="chat-msg-content">{processed_content}</div>
+                        <div class="chat-msg-content">{safe_content}</div>
                     </div>
                     """, unsafe_allow_html=True)
             except Exception as e:
-                st.error(f"메시지 표시 중 오류가 발생했습니다. 대화를 초기화해주세요.")
-    
+                # 오류 발생 시 간단히 표시하고 계속 진행
+                st.error(f"메시지 표시 오류: {str(e)[:100]}")
+                continue
+
     # 입력 영역 (하단에 고정)
     st.markdown("### 질문하기")
 
