@@ -498,619 +498,6 @@ h1, h2, h3 {
 </style>
 """, unsafe_allow_html=True)
 
-# 스트림 응답 개선 함수 - 상단에 함수 정의!
-def stream_response(response, message_placeholder):
-    """스트림 응답을 더 부드럽게 표시하는 함수"""
-    full_response = ""
-    
-    # 단일 텍스트 영역 생성
-    response_area = message_placeholder.empty()
-    
-    # 응답이 문자열인 경우 (오류 메시지 등)
-    if isinstance(response, str):
-        # HTML 태그를 완전히 이스케이프
-        escaped_response = html.escape(response)
-        response_area.text(escaped_response)
-        return response
-    
-    # 스트리밍 응답인 경우 (requests 스트리밍 응답)
-    try:
-        # requests의 스트림 응답 처리
-        for line in response.iter_lines():
-            if line:
-                line = line.decode('utf-8')
-                # Server-Sent Events 형식에서 데이터 추출
-                if line.startswith('data: ') and not line.startswith('data: [DONE]'):
-                    json_str = line[6:]  # 'data: ' 부분 제거
-                    try:
-                        chunk = json.loads(json_str)
-                        if 'choices' in chunk and len(chunk['choices']) > 0:
-                            if 'delta' in chunk['choices'][0] and 'content' in chunk['choices'][0]['delta']:
-                                content = chunk['choices'][0]['delta']['content']
-                                if content:
-                                    full_response += content
-                                    # HTML 태그를 완전히 이스케이프
-                                    escaped_response = html.escape(full_response)
-                                    response_area.text(escaped_response)
-                    except json.JSONDecodeError:
-                        continue
-    except Exception as e:
-        error_msg = f"응답 처리 중 오류가 발생했습니다: {str(e)}\n\n원본 응답: {response.text if hasattr(response, 'text') else '응답 내용 없음'}"
-        escaped_error = html.escape(error_msg)
-        response_area.text(escaped_error)
-    
-    return full_response
-
-# 마크다운 전처리 함수
-def preprocess_markdown(text):
-    """마크다운 텍스트를 전처리하여 줄바꿈 등의 문제를 해결합니다."""
-    if not text:
-        return ""
-    
-    # 타입 체크
-    if not isinstance(text, str):
-        try:
-            text = str(text)
-        except:
-            return ""
-        
-    # HTML 태그 이스케이프
-    text = html.escape(text)
-    
-    # 줄바꿈 처리 개선
-    text = text.replace('\n\n\n', '\n\n')  # 과도한 줄바꿈 줄이기
-    
-    # 목록 앞 여백 줄이기
-    text = re.sub(r'\n\n- ', '\n- ', text)
-    text = re.sub(r'\n\n\d+\. ', '\n\d+\. ', text)
-    
-    # 특수문자 처리
-    text = text.replace('•', '&#8226;')  # 불릿 포인트 처리
-    
-    return text 
-
-# ================ 사주 분석 함수 ================
-def analyze_saju_with_llm(prompt, messages=None, stream=True):
-    """OpenAI API를 사용하여 사주를 분석합니다."""
-    try:
-        if not OPENAI_API_KEY:
-            return "API 키가 설정되지 않았습니다. .env 파일에 OPENAI_API_KEY를 설정해주세요."
-        
-        # API 키를 환경 변수로 설정
-        os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
-        
-        # 직접 HTTP 요청을 통해 OpenAI API 호출
-        conversation = []
-        
-        # 시스템 메시지 설정
-        system_message = {
-            "role": "system", 
-            "content": "당신은 사주명리학의 최고 전문가로서, 사주팔자를 깊이 있게 분석할 수 있습니다. 한국의 전통 사주 이론을 기반으로 정확하고 통찰력 있는 분석을 제공하세요. 사용자가 질문하지 않은 내용까지 너무 장황하게 설명하지 마세요."
-        }
-        conversation.append(system_message)
-        
-        # 이전 대화 내역이 있으면 추가
-        if messages:
-            conversation.extend(messages)
-        
-        # 사용자 메시지 추가
-        conversation.append({"role": "user", "content": prompt})
-        
-        # OpenAI API 직접 호출
-        try:
-            headers = {
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {OPENAI_API_KEY}"
-            }
-            
-            payload = {
-                "model": "gpt-4.1-mini",
-                "messages": conversation,
-                "temperature": 0.5,
-                "max_tokens": 32768,
-                "stream": stream
-            }
-            
-            if not stream:
-                # 스트리밍 없는 요청
-                response = requests.post(
-                    "https://api.openai.com/v1/chat/completions",
-                    headers=headers,
-                    json=payload
-                )
-                
-                if response.status_code == 200:
-                    result = response.json()
-                    return result["choices"][0]["message"]["content"]
-                else:
-                    return f"API 오류: {response.status_code} - {response.text}"
-            else:
-                # 스트리밍 요청
-                response = requests.post(
-                    "https://api.openai.com/v1/chat/completions",
-                    headers=headers,
-                    json=payload,
-                    stream=True
-                )
-                
-                if response.status_code == 200:
-                    return response
-                else:
-                    return f"API 오류: {response.status_code} - {response.text}"
-                
-        except Exception as e:
-            return f"API 직접 호출 오류: {str(e)}"
-    
-    except Exception as e:
-        return f"분석 중 오류가 발생했습니다: {str(e)}"
-
-# ================ 유틸리티 함수 ================
-def get_lunar_date(solar_year, solar_month, solar_day):
-    """양력을 음력으로 변환"""
-    url = 'http://apis.data.go.kr/B090041/openapi/service/LrsrCldInfoService/getLunCalInfo'
-    params = {
-        'serviceKey': 'lgzl5ZUn691kCie1LGFWnRg3gMwSFay5T2X/gHbvyM+2W1DlEv3ViocMaq8+0YB1H2jkYPhnYlNl4hZQj23JnA==',
-        'solYear': str(solar_year),
-        'solMonth': str(solar_month).zfill(2),
-        'solDay': str(solar_day).zfill(2)
-    }
-    
-    try:
-        response = requests.get(url, params=params)
-        response.raise_for_status()
-        
-        root = ET.fromstring(response.content)
-        result_code = root.find('.//resultCode').text
-        
-        if result_code != '00':
-            result_msg = root.find('.//resultMsg').text
-            return {'error': True, 'message': f"API 오류: {result_code} - {result_msg}"}
-        
-        items = root.findall('.//item')
-        if not items:
-            return {'error': True, 'message': "결과 없음"}
-            
-        item = items[0]
-        
-        result = {
-            'error': False,
-            'lunYear': item.find('lunYear').text,
-            'lunMonth': item.find('lunMonth').text,
-            'lunDay': item.find('lunDay').text,
-            'lunLeapmonth': item.find('lunLeapmonth').text,
-            'solWeek': item.find('solWeek').text,
-            'lunSecha': item.find('lunSecha').text if item.find('lunSecha') is not None else "",
-            'lunWolgeon': item.find('lunWolgeon').text if item.find('lunWolgeon') is not None else "",
-            'lunIljin': item.find('lunIljin').text if item.find('lunIljin') is not None else "",
-            'solJd': item.find('solJd').text if item.find('solJd') is not None else ""
-        }
-        
-        return result
-        
-    except requests.exceptions.RequestException as e:
-        return {'error': True, 'message': f"요청 오류: {str(e)}"}
-    except ET.ParseError:
-        return {'error': True, 'message': "XML 파싱 오류"}
-    except Exception as e:
-        return {'error': True, 'message': f"오류 발생: {str(e)}"}
-
-def get_solar_date(lunar_year, lunar_month, lunar_day, lunar_leap_month="0"):
-    """음력을 양력으로 변환"""
-    url = 'http://apis.data.go.kr/B090041/openapi/service/LrsrCldInfoService/getSolCalInfo'
-    params = {
-        'serviceKey': 'lgzl5ZUn691kCie1LGFWnRg3gMwSFay5T2X/gHbvyM+2W1DlEv3ViocMaq8+0YB1H2jkYPhnYlNl4hZQj23JnA==',
-        'lunYear': str(lunar_year),
-        'lunMonth': str(lunar_month).zfill(2),
-        'lunDay': str(lunar_day).zfill(2),
-        'lunLeapmonth': lunar_leap_month  # 평달:0, 윤달:1
-    }
-    
-    try:
-        response = requests.get(url, params=params)
-        response.raise_for_status()
-        
-        root = ET.fromstring(response.content)
-        result_code = root.find('.//resultCode').text
-        
-        if result_code != '00':
-            result_msg = root.find('.//resultMsg').text
-            return {'error': True, 'message': f"API 오류: {result_code} - {result_msg}"}
-        
-        items = root.findall('.//item')
-        if not items:
-            return {'error': True, 'message': "결과 없음"}
-            
-        item = items[0]
-        
-        result = {
-            'error': False,
-            'solYear': item.find('solYear').text,
-            'solMonth': item.find('solMonth').text,
-            'solDay': item.find('solDay').text,
-            'solWeek': item.find('solWeek').text if item.find('solWeek') is not None else "",
-            'solLeapyear': item.find('solLeapyear').text if item.find('solLeapyear') is not None else "",
-            'lunSecha': item.find('lunSecha').text if item.find('lunSecha') is not None else "",
-            'lunWolgeon': item.find('lunWolgeon').text if item.find('lunWolgeon') is not None else "",
-            'lunIljin': item.find('lunIljin').text if item.find('lunIljin') is not None else "",
-            'solJd': item.find('solJd').text if item.find('solJd') is not None else ""
-        }
-        
-        return result
-        
-    except requests.exceptions.RequestException as e:
-        return {'error': True, 'message': f"요청 오류: {str(e)}"}
-    except ET.ParseError:
-        return {'error': True, 'message': "XML 파싱 오류"}
-    except Exception as e:
-        return {'error': True, 'message': f"오류 발생: {str(e)}"}
-
-def get_stem_branch_year(year):
-    """연도로부터 천간과 지지 계산"""
-    stems = ["갑", "을", "병", "정", "무", "기", "경", "신", "임", "계"]
-    branches = ["자", "축", "인", "묘", "진", "사", "오", "미", "신", "유", "술", "해"]
-    
-    stem_idx = (year - 4) % 10
-    branch_idx = (year - 4) % 12
-    
-    return stems[stem_idx], branches[branch_idx]
-
-def get_stem_branch_month(year_stem, month):
-    """연간과 월로부터 월주 천간지지 계산"""
-    stems = ["갑", "을", "병", "정", "무", "기", "경", "신", "임", "계"]
-    branches = ["인", "묘", "진", "사", "오", "미", "신", "유", "술", "해", "자", "축"]
-    
-    # 월의 지지는 간단하게 계산됨
-    branch = branches[month - 1]
-    
-    # 연간에 따른 월간 결정
-    stem_map = {
-        "갑": [2, 4, 6, 8, 0, 2, 4, 6, 8, 0, 2, 4],
-        "을": [4, 6, 8, 0, 2, 4, 6, 8, 0, 2, 4, 6],
-        "병": [6, 8, 0, 2, 4, 6, 8, 0, 2, 4, 6, 8],
-        "정": [8, 0, 2, 4, 6, 8, 0, 2, 4, 6, 8, 0],
-        "무": [0, 2, 4, 6, 8, 0, 2, 4, 6, 8, 0, 2],
-        "기": [2, 4, 6, 8, 0, 2, 4, 6, 8, 0, 2, 4],
-        "경": [4, 6, 8, 0, 2, 4, 6, 8, 0, 2, 4, 6],
-        "신": [6, 8, 0, 2, 4, 6, 8, 0, 2, 4, 6, 8],
-        "임": [8, 0, 2, 4, 6, 8, 0, 2, 4, 6, 8, 0],
-        "계": [0, 2, 4, 6, 8, 0, 2, 4, 6, 8, 0, 2]
-    }
-    
-    stem_idx = stem_map[year_stem][month - 1]
-    stem = stems[stem_idx]
-    
-    return stem, branch
-
-def get_stem_branch_day(year, month, day):
-    """연월일로부터 일주 천간지지 계산"""
-    # 1900년 1월 1일은 음력으로 경인년 12월 초하루
-    # 이 날의 일간은 '경'
-    base_date = date(1900, 1, 1)
-    target_date = date(year, month, day)
-    days_passed = (target_date - base_date).days
-    
-    stems = ["갑", "을", "병", "정", "무", "기", "경", "신", "임", "계"]
-    branches = ["자", "축", "인", "묘", "진", "사", "오", "미", "신", "유", "술", "해"]
-    
-    stem_idx = (days_passed % 10)
-    branch_idx = (days_passed % 12)
-    
-    return stems[stem_idx], branches[branch_idx]
-
-def get_stem_branch_hour(day_stem, hour):
-    """일간과 시간으로부터 시주 천간지지 계산"""
-    stems = ["갑", "을", "병", "정", "무", "기", "경", "신", "임", "계"]
-    branches = ["자", "축", "인", "묘", "진", "사", "오", "미", "신", "유", "술", "해"]
-    
-    # 시간에 따른 지지 결정
-    branch_map = {
-        0: 0, 1: 0,     # 23:00-01:59 자(子)
-        2: 1, 3: 1,     # 02:00-03:59 축(丑)
-        4: 2, 5: 2,     # 04:00-05:59 인(寅)
-        6: 3, 7: 3,     # 06:00-07:59 묘(卯)
-        8: 4, 9: 4,     # 08:00-09:59 진(辰)
-        10: 5, 11: 5,   # 10:00-11:59 사(巳)
-        12: 6, 13: 6,   # 12:00-13:59 오(午)
-        14: 7, 15: 7,   # 14:00-15:59 미(未)
-        16: 8, 17: 8,   # 16:00-17:59 신(申)
-        18: 9, 19: 9,   # 18:00-19:59 유(酉)
-        20: 10, 21: 10, # 20:00-21:59 술(戌)
-        22: 11, 23: 11  # 22:00-22:59 해(亥)
-    }
-    
-    branch_idx = branch_map[hour]
-    branch = branches[branch_idx]
-    
-    # 일간에 따른 시간 천간 결정
-    stem_map = {
-        "갑": [0, 2, 4, 6, 8, 0, 2, 4, 6, 8, 0, 2],
-        "을": [1, 3, 5, 7, 9, 1, 3, 5, 7, 9, 1, 3],
-        "병": [2, 4, 6, 8, 0, 2, 4, 6, 8, 0, 2, 4],
-        "정": [3, 5, 7, 9, 1, 3, 5, 7, 9, 1, 3, 5],
-        "무": [4, 6, 8, 0, 2, 4, 6, 8, 0, 2, 4, 6],
-        "기": [5, 7, 9, 1, 3, 5, 7, 9, 1, 3, 5, 7],
-        "경": [6, 8, 0, 2, 4, 6, 8, 0, 2, 4, 6, 8],
-        "신": [7, 9, 1, 3, 5, 7, 9, 1, 3, 5, 7, 9],
-        "임": [8, 0, 2, 4, 6, 8, 0, 2, 4, 6, 8, 0],
-        "계": [9, 1, 3, 5, 7, 9, 1, 3, 5, 7, 9, 1]
-    }
-    
-    stem_idx = stem_map[day_stem][branch_idx]
-    stem = stems[stem_idx]
-    
-    return stem, branch
-
-def get_five_elements(stem_or_branch):
-    """천간 또는 지지에 따른 오행 반환"""
-    elements_map = {
-        "갑": "목", "을": "목", 
-        "병": "화", "정": "화", 
-        "무": "토", "기": "토",
-        "경": "금", "신": "금", 
-        "임": "수", "계": "수",
-        "자": "수", "해": "수", 
-        "인": "목", "묘": "목",
-        "사": "화", "오": "화", 
-        "진": "토", "술": "토", "축": "토", "미": "토",
-        "신": "금", "유": "금"
-    }
-    
-    return elements_map.get(stem_or_branch, "")
-
-def get_twelve_life_forces(day_stem, branch):
-    """일간과 지지에 따른 십이운성 계산"""
-    twelve_forces = ["장생", "목욕", "관대", "임관", "대왕", "쇠", "병", "사", "묘", "절", "태", "양"]
-    
-    # 일간별 장생 시작점
-    start_points = {
-        "갑": "해", "을": "해",  # 목 일간
-        "병": "인", "정": "인",  # 화 일간
-        "무": "묘", "기": "묘",  # 토 일간
-        "경": "오", "신": "오",  # 금 일간
-        "임": "신", "계": "신"   # 수 일간
-    }
-    
-    branches = ["자", "축", "인", "묘", "진", "사", "오", "미", "신", "유", "술", "해"]
-    
-    # 양간(陽干)은 순행, 음간(陰干)은 역행
-    directions = {
-        "갑": 1, "을": -1, "병": 1, "정": -1, "무": 1, 
-        "기": -1, "경": 1, "신": -1, "임": 1, "계": -1
-    }
-    
-    start_branch = start_points[day_stem]
-    start_idx = branches.index(start_branch)
-    branch_idx = branches.index(branch)
-    direction = directions[day_stem]
-    
-    if direction > 0:
-        force_idx = (branch_idx - start_idx) % 12
-    else:
-        force_idx = (start_idx - branch_idx) % 12
-    
-    return twelve_forces[force_idx]
-
-def calculate_major_fortune(year_stem, month_stem, month_branch, birth_day, birth_month, birth_year, gender):
-    """대운 계산"""
-    stems = ["갑", "을", "병", "정", "무", "기", "경", "신", "임", "계"]
-    branches = ["자", "축", "인", "묘", "진", "사", "오", "미", "신", "유", "술", "해"]
-    
-    # 간지에서 양간(陽干)과 음간(陰干) 판별
-    is_yang_stem = stems.index(year_stem) % 2 == 0
-    
-    # 성별과 양간/음간에 따른 방향 결정 (남양여음 순행, 남음여양 역행)
-    direction = 1 if (gender == "남" and is_yang_stem) or (gender == "여" and not is_yang_stem) else -1
-    
-    # 대운 시작 나이 계산 (간단한 예시: 실제로는 절입일 계산 필요)
-    # 실제 구현에서는 절입일 계산 로직 추가 필요
-    start_age = 10  # 단순화: 10살부터 시작
-    
-    month_stem_idx = stems.index(month_stem)
-    month_branch_idx = branches.index(month_branch)
-    
-    major_fortunes = []
-    for i in range(10):  # 10개 대운 계산
-        next_stem_idx = (month_stem_idx + i*direction) % 10
-        next_branch_idx = (month_branch_idx + i*direction) % 12
-        
-        next_stem = stems[next_stem_idx]
-        next_branch = branches[next_branch_idx]
-        
-        start_year = birth_year + start_age + i*10
-        end_year = start_year + 9
-        
-        major_fortunes.append({
-            "간지": next_stem + next_branch,
-            "시작연령": start_age + i*10,
-            "시작년도": start_year,
-            "종료년도": end_year
-        })
-    
-    return major_fortunes
-
-def count_five_elements(saju):
-    """사주에 포함된 오행 개수 계산"""
-    elements = {"목": 0, "화": 0, "토": 0, "금": 0, "수": 0}
-    
-    # 천간 오행 개수
-    for stem in [saju["연주"][0], saju["월주"][0], saju["일주"][0], saju["시주"][0]]:
-        element = get_five_elements(stem)
-        if element:
-            elements[element] += 1
-    
-    # 지지 오행 개수
-    for branch in [saju["연주"][1], saju["월주"][1], saju["일주"][1], saju["시주"][1]]:
-        element = get_five_elements(branch)
-        if element:
-            elements[element] += 1
-    
-    return elements
-
-def calculate_saju(year, month, day, hour, gender, is_lunar=False):
-    """사주 계산"""
-    # 원본 날짜 정보 저장
-    original_date = {
-        "year": year,
-        "month": month,
-        "day": day,
-        "hour": hour,
-        "gender": gender,
-        "is_lunar": is_lunar
-    }
-    
-    if is_lunar:
-        # 음력일 경우 양력으로 변환
-        solar_info = get_solar_date(year, month, day)
-        if not solar_info.get('error', True):
-            year = int(solar_info['solYear'])
-            month = int(solar_info['solMonth'])
-            day = int(solar_info['solDay'])
-    
-    # 연주 계산
-    year_stem, year_branch = get_stem_branch_year(year)
-    
-    # 월주 계산
-    month_stem, month_branch = get_stem_branch_month(year_stem, month)
-    
-    # 일주 계산
-    day_stem, day_branch = get_stem_branch_day(year, month, day)
-    
-    # 시주 계산
-    hour_stem, hour_branch = get_stem_branch_hour(day_stem, hour)
-    
-    # 일간 확인
-    day_master = day_stem
-    
-    # 간지 조합
-    year_pillars = year_stem + year_branch
-    month_pillars = month_stem + month_branch
-    day_pillars = day_stem + day_branch
-    hour_pillars = hour_stem + hour_branch
-    
-    # 십이운성 계산
-    year_life_force = get_twelve_life_forces(day_stem, year_branch)
-    month_life_force = get_twelve_life_forces(day_stem, month_branch)
-    day_life_force = get_twelve_life_forces(day_stem, day_branch)
-    hour_life_force = get_twelve_life_forces(day_stem, hour_branch)
-    
-    # 대운 계산
-    major_fortunes = calculate_major_fortune(
-        year_stem, month_stem, month_branch, day, month, year, gender
-    )
-    
-    saju = {
-        "연주": year_pillars,
-        "월주": month_pillars,
-        "일주": day_pillars,
-        "시주": hour_pillars,
-        "일간": day_master,
-        "십이운성": {
-            "연주": year_life_force,
-            "월주": month_life_force,
-            "일주": day_life_force,
-            "시주": hour_life_force
-        },
-        "대운": major_fortunes,
-        "원본정보": original_date,  # 원본 날짜 정보 추가
-        "양력정보": {  # 변환된 양력 정보 추가
-            "year": year,
-            "month": month,
-            "day": day,
-            "hour": hour,
-            "gender": gender
-        }
-    }
-    
-    # 오행 개수 계산
-    elements_count = count_five_elements(saju)
-    saju["오행개수"] = elements_count
-    
-    return saju
-
-# ================ Streamlit UI ================
-# 사이드바에 설정 추가
-with st.sidebar:
-    st.header("⚙️ 로컬 만세력 사주풀이")
-    
-    # API 키 상태 확인
-    is_api_key_set = check_api_key()
-    
-    if is_api_key_set:
-        st.success("✅ 사주 상세 분석이 가능한 상태입니다")
-    
-    st.markdown("---")
-    st.markdown("### 📝 앱 정보")
-    st.markdown("""
-    **로컬 만세력 사주풀이**는 한국 전통 만세력을 기반으로 정확한 사주를 계산하고 분석합니다.
-    
-    - ✅ 동경 135도 만세력 기준 시간 보정
-    - ✅ 정밀한 지역별 경도 차이 계산
-    - ✅ 실시간 AI 사주 풀이 채팅
-    - ✅ 전문적인 사주명리학 분석 방법론 적용
-    
-    이 앱은 수천 년간 전해져 내려온 동양 전통 사주명리학의 지혜를 현대 AI 기술과 결합하여 보다 정확하고 심층적인 사주 풀이를 제공합니다.
-    """)
-
-# 스트림릿 UI에 스타일 추가
-st.markdown("""
-<style>
-/* 버튼 스타일 강화 */
-.stButton > button {
-    background-color: #4F46E5;
-    color: white;
-    border-radius: 6px;
-    padding: 0.5rem 1rem;
-    font-weight: 500;
-    border: none;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
-    transition: all 0.3s cubic-bezier(.25,.8,.25,1);
-}
-
-.stButton > button:hover {
-    background-color: #6366F1;
-    box-shadow: 0 3px 6px rgba(0,0,0,0.16), 0 3px 6px rgba(0,0,0,0.23);
-}
-
-/* 버튼 강조 (사주 계산하기, 대화하기 등) */
-.highlight-button {
-    transform: scale(1.05);
-}
-
-/* 다크모드 대응 */
-[data-theme="dark"] .stButton > button {
-    background-color: #6366F1;
-    color: white;
-}
-
-[data-theme="dark"] .stButton > button:hover {
-    background-color: #818CF8;
-}
-
-/* 컬러풀한 강조 효과 */
-.title-gradient {
-    background: linear-gradient(90deg, #3B82F6, #8B5CF6);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    display: inline-block;
-    font-weight: bold;
-}
-
-/* 폼 영역 강화 */
-[data-testid="stForm"] {
-    border-radius: 10px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    padding: 20px;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-/* 헤더 스타일 강화 */
-h1, h2, h3 {
-    font-weight: 600;
-}
-</style>
-""", unsafe_allow_html=True)
-
 # 탭 구조 제거 - 하나의 흐름으로 구성
 st.title("🔮 로컬 만세력 사주풀이")
 st.markdown("""
@@ -1407,13 +794,113 @@ AI 사주 분석가가 만세력 기반으로 정확히 계산된 사주를 바�
 수백 가지 사주 패턴과 법칙을 학습한 AI가 사주의 특성과 운세를 상세히 풀이해드립니다.
 """)
 
+# UI 스타일 추가
+st.markdown("""
+<style>
+/* 채팅 컨테이너 스타일 */
+.chat-wrapper {
+    max-height: 400px;
+    overflow-y: auto;
+    padding: 15px;
+    border-radius: 12px;
+    background-color: #f9f9f9;
+    margin-bottom: 20px;
+    border: 1px solid #eaeaea;
+}
+
+/* 사용자 메시지 스타일 */
+.user-bubble {
+    background-color: #DCF8C6;
+    border-radius: 18px 18px 0 18px;
+    padding: 12px 15px;
+    margin: 8px 0;
+    max-width: 80%;
+    float: right;
+    clear: both;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    word-wrap: break-word;
+}
+
+/* 어시스턴트 메시지 스타일 */
+.assistant-bubble {
+    background-color: #F1F0F0;
+    border-radius: 18px 18px 18px 0;
+    padding: 12px 15px;
+    margin: 8px 0;
+    max-width: 80%;
+    float: left;
+    clear: both;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    word-wrap: break-word;
+}
+
+/* float 정리용 */
+.clearfix::after {
+    content: "";
+    clear: both;
+    display: table;
+}
+
+/* 입력창 스타일 */
+.chat-input-container {
+    display: flex;
+    align-items: center;
+    margin-top: 10px;
+    margin-bottom: 20px;
+    background: #f0f2f6;
+    border-radius: 20px;
+    padding: 5px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+}
+
+/* 텍스트 입력 영역 */
+.stTextArea textarea {
+    border-radius: 18px;
+    border: none;
+    padding: 10px 15px;
+    margin-right: 5px;
+    background: white;
+    box-shadow: none;
+}
+
+/* 전송 버튼 */
+.chat-send-btn {
+    background-color: #4F46E5;
+    color: white;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+}
+
+/* 초기화 버튼 */
+.stButton > button {
+    background-color: #4F46E5;
+    color: white;
+    border-radius: 6px;
+    padding: 0.5rem 1rem;
+    font-weight: 500;
+    border: none;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+}
+
+.stButton > button:hover {
+    background-color: #6366F1;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.16), 0 3px 6px rgba(0,0,0,0.23);
+}
+</style>
+""", unsafe_allow_html=True)
+
 if not OPENAI_API_KEY:
     st.warning("사주 분석을 위해 OpenAI API 키가 필요합니다. .env 파일에 OPENAI_API_KEY를 설정해주세요.")
 elif st.session_state.saju_data is None:
     st.info("먼저 위에서 사주를 계산해주세요.")
 else:
-    # 대화 초기화 버튼 중앙 배치
-    # 초기화 콜백 함수 설정
+    # 대화 초기화 버튼 왼쪽 배치
     if 'reset_chat_clicked' not in st.session_state:
         st.session_state.reset_chat_clicked = False
     if 'reset_in_progress' not in st.session_state:
@@ -1425,9 +912,9 @@ else:
             st.session_state.reset_chat_clicked = True
             st.session_state.reset_in_progress = True
     
-    # 중앙 정렬을 위한 컬럼 배치
-    col1, col2, col3 = st.columns([1, 1, 1])
-    with col2:
+    # 왼쪽 정렬로 변경
+    col1, col2, col3 = st.columns([1, 3, 1])
+    with col1:
         st.button("🔄 대화 초기화", on_click=handle_reset_chat, key="reset_chat_button")
     
     # 버튼 클릭 처리
@@ -1435,7 +922,8 @@ else:
         # 모든 메시지와 관련 상태 초기화
         reset_chat()
 
-    # 채팅 메시지 표시 (고정된 높이의 컨테이너에)
+    # 채팅 메시지 표시 - 스크롤 가능한 컨테이너
+    st.markdown('<div class="chat-wrapper">', unsafe_allow_html=True)
     chat_container = st.container()
     
     with chat_container:
@@ -1459,25 +947,30 @@ else:
                 safe_content = html.escape(msg_content).replace('\n', '<br/>')
                     
                 if msg_role == "user":
-                    # 사용자 메시지 표시
+                    # 사용자 메시지 표시 - 오른쪽 정렬
                     st.markdown(f"""
-                    <div class="chat-container user-message" id="msg_{msg_id}">
-                        <strong>👤 나:</strong>
-                        <div class="chat-msg-content">{safe_content}</div>
+                    <div class="clearfix">
+                        <div class="user-bubble">
+                            {safe_content}
+                        </div>
                     </div>
                     """, unsafe_allow_html=True)
                 elif msg_role == "assistant":
-                    # 어시스턴트 메시지 표시
+                    # 어시스턴트 메시지 표시 - 왼쪽 정렬
                     st.markdown(f"""
-                    <div class="chat-container assistant-message" id="msg_{msg_id}">
-                        <strong>🔮 사주 분석가:</strong>
-                        <div class="chat-msg-content">{safe_content}</div>
+                    <div class="clearfix">
+                        <div class="assistant-bubble">
+                            <strong>🔮 사주 분석가</strong><br/>
+                            {safe_content}
+                        </div>
                     </div>
                     """, unsafe_allow_html=True)
             except Exception as e:
                 # 오류 발생 시 간단히 표시하고 계속 진행
                 st.error(f"메시지 표시 오류: {str(e)[:100]}")
                 continue
+    
+    st.markdown('</div>', unsafe_allow_html=True)
     
     # 입력 영역 (하단에 고정)
     st.markdown("### 질문하기")
@@ -1507,6 +1000,43 @@ else:
             # 입력값 초기화를 위한 값 설정
             st.session_state.input_text = ""
     
+    # 채팅 인터페이스 디자인
+    st.markdown("""
+    <style>
+    .chat-input-container {
+        display: flex;
+        align-items: center;
+        margin-top: 10px;
+        margin-bottom: 20px;
+        background: #f0f2f6;
+        border-radius: 20px;
+        padding: 5px;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    }
+    .stTextArea textarea {
+        border-radius: 18px;
+        border: none;
+        padding: 10px 15px;
+        margin-right: 5px;
+        background: white;
+        box-shadow: none;
+    }
+    .chat-send-btn {
+        background-color: #4F46E5;
+        color: white;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+    }
+    </style>
+    <div class="chat-input-container">
+    """, unsafe_allow_html=True)
+    
     # 입력 필드 (세션 상태를 통해 관리)
     with col1:
         st.text_area(
@@ -1514,19 +1044,24 @@ else:
             key="temp_input",
             value=st.session_state.input_text,
             on_change=process_input,
-            height=100,
-            placeholder="예: '제 성격은 어떤가요?', '건강운은 어떤가요?', '적합한 직업은 무엇인가요?'",
+            height=50,
+            placeholder="사주에 대해 궁금한 점을 입력하세요",
             label_visibility="collapsed"
         )
     
     # 제출 버튼
     with col2:
-        st.markdown('<div class="highlight-button">', unsafe_allow_html=True)
-        st.button("💬 대화하기", on_click=handle_submit, key="submit_chat_button")
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown(f"""
+        <div class="chat-send-btn" onclick="document.querySelector('button[data-testid=\"stFormSubmitButton\"]').click();">
+            <span style="font-size: 20px;">➤</span>
+        </div>
+        """, unsafe_allow_html=True)
+        st.button("대화하기", on_click=handle_submit, key="submit_chat_button", help="메시지 전송", type="primary")
+    
+    st.markdown("</div>", unsafe_allow_html=True)
     
     # 팁
-    st.caption("💡 **팁**: 메시지를 입력한 후 대화하기 버튼을 클릭하세요.")
+    st.caption("💡 **팁**: 궁금한 점을 물어보세요. 예: '제 성격은 어떤가요?', '건강운은 어떤가요?', '적합한 직업은 무엇인가요?'")
     
     # 버튼이 클릭되었고 입력값이 있는 경우 처리
     if st.session_state.submit_clicked:
