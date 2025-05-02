@@ -11,6 +11,7 @@ import openai
 import json
 import matplotlib.font_manager as fm
 import platform
+import re
 
 # .env 파일 로드
 load_dotenv()
@@ -57,10 +58,10 @@ def stream_response(response, message_placeholder):
     
     # 응답이 문자열인 경우 (오류 메시지 등)
     if isinstance(response, str):
-        # HTML 태그 이스케이프 처리
-        safe_response = response.replace("<", "&lt;").replace(">", "&gt;")
-        # 마크다운 대신 일반 텍스트로 표시 (HTML 해석 방지)
-        response_area.text(safe_response)
+        # HTML 태그 완전히 제거
+        clean_response = re.sub(r'<[^>]*>', '', response)
+        # 일반 텍스트로 표시
+        response_area.text(clean_response)
         return response
     
     # 스트리밍 응답인 경우 (requests 스트리밍 응답)
@@ -79,16 +80,16 @@ def stream_response(response, message_placeholder):
                                 content = chunk['choices'][0]['delta']['content']
                                 if content:
                                     full_response += content
-                                    # HTML 태그 이스케이프 처리하여 표시
-                                    safe_response = full_response.replace("<", "&lt;").replace(">", "&gt;")
-                                    response_area.text(safe_response)
+                                    # HTML 태그 완전히 제거하여 표시
+                                    clean_response = re.sub(r'<[^>]*>', '', full_response)
+                                    response_area.text(clean_response)
                     except json.JSONDecodeError:
                         continue
     except Exception as e:
         error_msg = f"응답 처리 중 오류가 발생했습니다: {str(e)}\n\n원본 응답: {response.text if hasattr(response, 'text') else '응답 내용 없음'}"
-        # 오류 메시지도 HTML 태그 이스케이프 처리
-        safe_error = error_msg.replace("<", "&lt;").replace(">", "&gt;")
-        response_area.text(safe_error)
+        # 오류 메시지도 HTML 태그 제거
+        clean_error = re.sub(r'<[^>]*>', '', error_msg)
+        response_area.text(clean_error)
     
     return full_response
 
@@ -796,23 +797,17 @@ else:
     st.markdown("""
     <style>
     .chat-container {
-        padding: 10px;
+        padding: 15px;
         border-radius: 10px;
-        margin-bottom: 10px;
+        margin-bottom: 15px;
+        background-color: white;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
     }
     .user-message {
-        background-color: #e6f7ff;
         border-left: 5px solid #1890ff;
-        padding: 10px;
-        border-radius: 5px;
-        margin-bottom: 10px;
     }
     .assistant-message {
-        background-color: #f6f6f6;
         border-left: 5px solid #7c7c7c;
-        padding: 10px;
-        border-radius: 5px;
-        margin-bottom: 10px;
     }
     .reset-button {
         position: absolute;
@@ -829,6 +824,13 @@ else:
         border-radius: 5px;
         border: none;
         padding: 10px 20px;
+    }
+    .stTextArea textarea {
+        font-size: 16px;
+    }
+    .chat-message-content {
+        font-size: 16px;
+        line-height: 1.5;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -850,15 +852,24 @@ else:
         # 메시지 표시
         for msg in st.session_state.messages:
             if msg["role"] == "user":
-                # 사용자 메시지에서 HTML 태그 이스케이프 처리
-                escaped_content = msg["content"].replace("<", "&lt;").replace(">", "&gt;")
-                st.markdown(f"<div class='chat-container user-message'>👤 **나**: {escaped_content}</div>", unsafe_allow_html=True)
+                # HTML 태그를 완전히 제거
+                cleaned_content = re.sub(r'<[^>]*>', '', msg["content"])
+                st.markdown(f"""
+                <div class='chat-container user-message'>
+                    <div style='font-weight: bold;'>👤 나:</div>
+                    <div style='white-space: pre-wrap;'>{cleaned_content}</div>
+                </div>
+                """, unsafe_allow_html=True)
             else:
-                # 마크다운 렌더링 개선
-                # 사용자 응답에서 하이픈(-) 문제 해결 및 HTML 태그 이스케이프 처리
+                # HTML 태그를 완전히 제거
                 content = msg["content"].replace("\n- ", "\n• ").replace("- ", "• ")
-                content = content.replace("<", "&lt;").replace(">", "&gt;")
-                st.markdown(f"<div class='chat-container assistant-message'>🔮 **사주 분석가**: {content}</div>", unsafe_allow_html=True)
+                cleaned_content = re.sub(r'<[^>]*>', '', content)
+                st.markdown(f"""
+                <div class='chat-container assistant-message'>
+                    <div style='font-weight: bold;'>🔮 사주 분석가:</div>
+                    <div style='white-space: pre-wrap;'>{cleaned_content}</div>
+                </div>
+                """, unsafe_allow_html=True)
     
     # 입력 영역 (하단에 고정)
     st.markdown("### 질문하기")
@@ -872,6 +883,24 @@ else:
             label_visibility="collapsed",
             key="chat_input"
         )
+        
+        # Enter 키로 제출 가능하도록 JavaScript 추가
+        st.markdown("""
+        <script>
+        const textareas = window.parent.document.querySelectorAll('textarea');
+        const chatTextarea = textareas[textareas.length-1]; // 마지막 textarea 요소가 채팅 입력창
+        
+        chatTextarea.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                const submitButton = window.parent.document.querySelector('button[kind="primaryFormSubmit"]');
+                if (submitButton) {
+                    submitButton.click();
+                }
+            }
+        });
+        </script>
+        """, unsafe_allow_html=True)
         
         col1, col2, col3 = st.columns([3, 1, 1])
         with col3:
