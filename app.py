@@ -12,6 +12,7 @@ import json
 import matplotlib.font_manager as fm
 import platform
 import re
+import html  # HTML 이스케이프 라이브러리 추가
 
 # .env 파일 로드
 load_dotenv()
@@ -47,6 +48,8 @@ if 'analysis_guide' not in st.session_state:
             st.session_state.analysis_guide = file.read()
     except Exception as e:
         st.session_state.analysis_guide = "분석 가이드를 불러오지 못했습니다: " + str(e)
+if 'user_input' not in st.session_state:
+    st.session_state.user_input = ""
 
 # 스트림 응답 개선 함수 - 상단에 함수 정의!
 def stream_response(response, message_placeholder):
@@ -58,10 +61,9 @@ def stream_response(response, message_placeholder):
     
     # 응답이 문자열인 경우 (오류 메시지 등)
     if isinstance(response, str):
-        # HTML 태그 완전히 제거
-        clean_response = re.sub(r'<[^>]*>', '', response)
-        # 일반 텍스트로 표시
-        response_area.text(clean_response)
+        # HTML 태그를 완전히 이스케이프
+        escaped_response = html.escape(response)
+        response_area.text(escaped_response)
         return response
     
     # 스트리밍 응답인 경우 (requests 스트리밍 응답)
@@ -80,16 +82,15 @@ def stream_response(response, message_placeholder):
                                 content = chunk['choices'][0]['delta']['content']
                                 if content:
                                     full_response += content
-                                    # HTML 태그 완전히 제거하여 표시
-                                    clean_response = re.sub(r'<[^>]*>', '', full_response)
-                                    response_area.text(clean_response)
+                                    # HTML 태그를 완전히 이스케이프
+                                    escaped_response = html.escape(full_response)
+                                    response_area.text(escaped_response)
                     except json.JSONDecodeError:
                         continue
     except Exception as e:
         error_msg = f"응답 처리 중 오류가 발생했습니다: {str(e)}\n\n원본 응답: {response.text if hasattr(response, 'text') else '응답 내용 없음'}"
-        # 오류 메시지도 HTML 태그 제거
-        clean_error = re.sub(r'<[^>]*>', '', error_msg)
-        response_area.text(clean_error)
+        escaped_error = html.escape(error_msg)
+        response_area.text(escaped_error)
     
     return full_response
 
@@ -814,23 +815,14 @@ else:
         right: 10px;
         top: 10px;
     }
-    .chat-textarea {
-        border-radius: 10px;
-        border: 1px solid #ddd;
-    }
-    .chat-submit {
-        background-color: #1890ff;
-        color: white;
+    pre {
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        background-color: #f9f9f9;
+        padding: 10px;
         border-radius: 5px;
-        border: none;
-        padding: 10px 20px;
-    }
-    .stTextArea textarea {
-        font-size: 16px;
-    }
-    .chat-message-content {
-        font-size: 16px;
-        line-height: 1.5;
+        font-family: monospace;
+        font-size: 14px;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -852,122 +844,20 @@ else:
         # 메시지 표시
         for msg in st.session_state.messages:
             if msg["role"] == "user":
-                # HTML 태그를 완전히 제거
-                cleaned_content = re.sub(r'<[^>]*>', '', msg["content"])
-                st.markdown(f"""
-                <div class='chat-container user-message'>
-                    <div style='font-weight: bold;'>👤 나:</div>
-                    <div style='white-space: pre-wrap;'>{cleaned_content}</div>
-                </div>
-                """, unsafe_allow_html=True)
+                # 텍스트 보기로 표시
+                st.text_area("👤 나:", value=msg["content"], height=80, key=f"user_{len(msg['content'])}", disabled=True)
             else:
-                # HTML 태그를 완전히 제거
-                content = msg["content"].replace("\n- ", "\n• ").replace("- ", "• ")
-                cleaned_content = re.sub(r'<[^>]*>', '', content)
-                st.markdown(f"""
-                <div class='chat-container assistant-message'>
-                    <div style='font-weight: bold;'>🔮 사주 분석가:</div>
-                    <div style='white-space: pre-wrap;'>{cleaned_content}</div>
-                </div>
-                """, unsafe_allow_html=True)
+                # 텍스트 보기로 표시
+                st.text_area("🔮 사주 분석가:", value=msg["content"], height=200, key=f"assistant_{len(msg['content'])}", disabled=True)
     
-    # 입력 영역 (하단에 고정)
-    st.markdown("### 질문하기")
+    # Enter 키로 메시지 전송을 처리하는 함수
+    def handle_enter():
+        if st.session_state.user_input.strip():
+            submit_message(st.session_state.user_input)
+            st.session_state.user_input = ""
     
-    # 입력 폼
-    with st.form(key="chat_form"):
-        user_input = st.text_area(
-            "사주에 대해 궁금한 점을 입력하세요:",
-            height=100,
-            placeholder="예: '제 성격은 어떤가요?', '건강운은 어떤가요?', '적합한 직업은 무엇인가요?'",
-            label_visibility="collapsed",
-            key="chat_input"
-        )
-        
-        # Enter 키로 제출 가능하도록 JavaScript 추가
-        st.markdown("""
-        <script>
-        const textareas = window.parent.document.querySelectorAll('textarea');
-        const chatTextarea = textareas[textareas.length-1]; // 마지막 textarea 요소가 채팅 입력창
-        
-        chatTextarea.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                const submitButton = window.parent.document.querySelector('button[kind="primaryFormSubmit"]');
-                if (submitButton) {
-                    submitButton.click();
-                }
-            }
-        });
-        </script>
-        """, unsafe_allow_html=True)
-        
-        col1, col2, col3 = st.columns([3, 1, 1])
-        with col3:
-            submit_chat = st.form_submit_button("💬 대화하기")
-    
-    # 초기 분석 시작 버튼
-    if not st.session_state.messages:
-        if st.button("🔮 사주 분석 시작하기", key="start_analysis_button_tab2"):
-            with st.spinner("사주를 분석 중입니다..."):
-                # 분석 가이드와 사주 데이터를 포함한 초기 프롬프트 구성
-                saju_data = st.session_state.saju_data
-                
-                # 현재 날짜와 시간 정보 가져오기
-                current_time = datetime.now()
-                current_time_str = current_time.strftime("%Y년 %m월 %d일 %H시 %M분")
-                
-                # 생년월일 정보 가져오기
-                birth_info = ""
-                if "원본정보" in saju_data:
-                    info = saju_data["원본정보"]
-                    date_type = "음력" if info["is_lunar"] else "양력"
-                    birth_info = f"{info['year']}년 {info['month']}월 {info['day']}일 {info['hour']}시 ({date_type}), 성별: {info['gender']}"
-                else:
-                    # 이전 버전 호환성
-                    양력정보 = saju_data["양력정보"]
-                    birth_info = f"{양력정보['year']}년 {양력정보['month']}월 {양력정보['day']}일 {양력정보['hour']}시 (양력), 성별: {양력정보['gender']}"
-                
-                initial_prompt = f"""
-                현재 시간: {current_time_str}
-                
-                다음은 사주 데이터입니다:
-                - 생년월일시: {birth_info}
-                - 연주: {saju_data['연주']}
-                - 월주: {saju_data['월주']}
-                - 일주: {saju_data['일주']}
-                - 시주: {saju_data['시주']}
-                - 일간: {saju_data['일간']}
-                - 오행 분포: {saju_data['오행개수']}
-                - 십이운성: {saju_data['십이운성']}
-                - 대운: {saju_data['대운'][:3]}
-                
-                다음은 사주 분석 가이드라인입니다:
-                {st.session_state.analysis_guide}
-                
-                위 가이드라인에 따라 이 사주에 대한 간략한 첫 인상과 이 사주의 가장 특징적인 부분을 알려주세요. 
-                그리고 어떤 항목들에 대해 더 자세히 알고 싶은지 물어봐주세요.
-                """
-                
-                # 스트리밍 응답을 위한 플레이스홀더
-                with st.empty():
-                    with st.spinner("사주를 분석 중입니다..."):
-                        # Stream API 호출
-                        response = analyze_saju_with_llm(initial_prompt)
-                        
-                        # 스트리밍 응답 처리를 위한 임시 컨테이너
-                        temp_placeholder = st.empty()
-                        full_response = stream_response(response, temp_placeholder)
-                        
-                        # 대화 기록에 추가
-                        st.session_state.messages.append({"role": "user", "content": "사주 분석을 시작해주세요."})
-                        st.session_state.messages.append({"role": "assistant", "content": full_response})
-                
-                # 재실행하여 UI 업데이트
-                st.rerun()
-    
-    # 사용자 입력 처리
-    if submit_chat and user_input:
+    # 메시지 제출 함수
+    def submit_message(user_input):
         # 사용자 메시지 추가
         st.session_state.messages.append({"role": "user", "content": user_input})
         
@@ -1030,4 +920,87 @@ else:
             st.session_state.messages.append({"role": "assistant", "content": full_response})
         
         # 재실행하여 UI 업데이트
-        st.rerun() 
+        st.rerun()
+    
+    # 입력 영역 (하단에 고정)
+    st.markdown("### 질문하기")
+    
+    # 입력 영역 - on_change 이벤트 사용
+    user_input = st.text_area(
+        "사주에 대해 궁금한 점을 입력하세요:",
+        key="user_input",
+        height=100,
+        placeholder="예: '제 성격은 어떤가요?', '건강운은 어떤가요?', '적합한 직업은 무엇인가요?'",
+        label_visibility="collapsed",
+        on_change=handle_enter
+    )
+    
+    # 대화하기 버튼
+    if st.button("💬 대화하기", key="submit_chat"):
+        if user_input.strip():
+            submit_message(user_input)
+            st.session_state.user_input = ""
+            st.rerun()
+    
+    # 팁: Enter 키로 전송
+    st.caption("💡 **팁**: Enter 키를 누르면 메시지가 전송됩니다. 줄바꿈은 Shift+Enter를 사용하세요.")
+    
+    # 초기 분석 시작 버튼
+    if not st.session_state.messages:
+        if st.button("🔮 사주 분석 시작하기", key="start_analysis_button_tab2"):
+            with st.spinner("사주를 분석 중입니다..."):
+                # 분석 가이드와 사주 데이터를 포함한 초기 프롬프트 구성
+                saju_data = st.session_state.saju_data
+                
+                # 현재 날짜와 시간 정보 가져오기
+                current_time = datetime.now()
+                current_time_str = current_time.strftime("%Y년 %m월 %d일 %H시 %M분")
+                
+                # 생년월일 정보 가져오기
+                birth_info = ""
+                if "원본정보" in saju_data:
+                    info = saju_data["원본정보"]
+                    date_type = "음력" if info["is_lunar"] else "양력"
+                    birth_info = f"{info['year']}년 {info['month']}월 {info['day']}일 {info['hour']}시 ({date_type}), 성별: {info['gender']}"
+                else:
+                    # 이전 버전 호환성
+                    양력정보 = saju_data["양력정보"]
+                    birth_info = f"{양력정보['year']}년 {양력정보['month']}월 {양력정보['day']}일 {양력정보['hour']}시 (양력), 성별: {양력정보['gender']}"
+                
+                initial_prompt = f"""
+                현재 시간: {current_time_str}
+                
+                다음은 사주 데이터입니다:
+                - 생년월일시: {birth_info}
+                - 연주: {saju_data['연주']}
+                - 월주: {saju_data['월주']}
+                - 일주: {saju_data['일주']}
+                - 시주: {saju_data['시주']}
+                - 일간: {saju_data['일간']}
+                - 오행 분포: {saju_data['오행개수']}
+                - 십이운성: {saju_data['십이운성']}
+                - 대운: {saju_data['대운'][:3]}
+                
+                다음은 사주 분석 가이드라인입니다:
+                {st.session_state.analysis_guide}
+                
+                위 가이드라인에 따라 이 사주에 대한 간략한 첫 인상과 이 사주의 가장 특징적인 부분을 알려주세요. 
+                그리고 어떤 항목들에 대해 더 자세히 알고 싶은지 물어봐주세요.
+                """
+                
+                # 스트리밍 응답을 위한 플레이스홀더
+                with st.empty():
+                    with st.spinner("사주를 분석 중입니다..."):
+                        # Stream API 호출
+                        response = analyze_saju_with_llm(initial_prompt)
+                        
+                        # 스트리밍 응답 처리를 위한 임시 컨테이너
+                        temp_placeholder = st.empty()
+                        full_response = stream_response(response, temp_placeholder)
+                        
+                        # 대화 기록에 추가
+                        st.session_state.messages.append({"role": "user", "content": "사주 분석을 시작해주세요."})
+                        st.session_state.messages.append({"role": "assistant", "content": full_response})
+                
+                # 재실행하여 UI 업데이트
+                st.rerun() 
