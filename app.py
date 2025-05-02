@@ -357,6 +357,8 @@ if 'analysis_guide' not in st.session_state:
         st.session_state.analysis_guide = "분석 가이드를 불러오지 못했습니다: " + str(e)
 if 'user_input' not in st.session_state:
     st.session_state.user_input = ""
+if 'input_text' not in st.session_state:
+    st.session_state.input_text = ""
 if 'clear_input' not in st.session_state:
     st.session_state.clear_input = False
 
