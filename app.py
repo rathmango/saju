@@ -14,7 +14,6 @@ import platform
 import re
 import html  # HTML 이스케이프 라이브러리 추가
 import uuid  # 고유 ID 생성 라이브러리 추가
-import markdown  # 마크다운 처리 라이브러리 추가
 
 # .env 파일 로드
 load_dotenv()
