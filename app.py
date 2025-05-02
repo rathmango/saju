@@ -12,21 +12,6 @@ import json
 import matplotlib.font_manager as fm
 import platform
 
-# matplotlib 한글 폰트 설정 (OS별로 다른 폰트 적용)
-system = platform.system()
-if system == 'Darwin':  # macOS
-    plt.rcParams['font.family'] = 'AppleGothic'
-elif system == 'Windows':  # Windows
-    plt.rcParams['font.family'] = 'Malgun Gothic'
-else:  # Linux 등
-    # 나눔 폰트가 설치되어 있다면 사용
-    font_list = [f.name for f in fm.fontManager.ttflist]
-    if any('Nanum' in font for font in font_list):
-        plt.rcParams['font.family'] = [font for font in font_list if 'Nanum' in font][0]
-
-# 마이너스 기호 깨짐 방지
-plt.rcParams['axes.unicode_minus'] = False
-
 # .env 파일 로드
 load_dotenv()
 
@@ -735,50 +720,32 @@ if submit_button:
                     "개수": list(elements.values())
                 }
                 
-                # bar_chart 대신 matplotlib 사용
-                fig, ax = plt.figure(figsize=(8, 5)), plt.subplot()
-                ohaeng = elements_data["오행"]
-                counts = elements_data["개수"]
+                # Streamlit의 내장 차트 사용
+                df = pd.DataFrame({
+                    '오행 개수': elements.values(),
+                }, index=elements_mapping.values())
                 
-                # 오행 색상 및 이름 맵핑
+                # 사용자 정의 색상 맵
                 color_map = {
                     'Wood(목)': '#228B22',  # 진한 녹색
-                    'Fire(화)': '#FF4500',  # 붉은색
+                    'Fire(화)': '#FF4500',  # 붉은색 
                     'Earth(토)': '#8B4513',  # 갈색
                     'Metal(금)': '#DAA520',  # 황금색
                     'Water(수)': '#1E90FF'   # 파란색
                 }
                 
-                colors = [color_map[element] for element in ohaeng]
+                # 정적 이미지로 차트 생성하여 표시
+                st.bar_chart(df)
                 
-                # 그래프 그리기
-                bars = ax.bar(ohaeng, counts, color=colors, width=0.6)
-                
-                # 눈금선 스타일 설정
-                ax.grid(axis='y', linestyle='--', alpha=0.7)
-                
-                # 축 레이블과 제목 설정
-                ax.set_ylabel('개수', fontsize=12)
-                ax.set_title('오행 분포', fontsize=14, fontweight='bold')
-                
-                # 배경색 설정
-                ax.set_facecolor('#f8f9fa')
-                
-                # 각 막대 위에 값 표시
-                for bar in bars:
-                    height = bar.get_height()
-                    ax.annotate(f'{height}',
-                                xy=(bar.get_x() + bar.get_width() / 2, height),
-                                xytext=(0, 3),  # 3 points vertical offset
-                                textcoords="offset points",
-                                fontsize=12,
-                                fontweight='bold',
-                                ha='center', va='bottom')
-                
-                # x축 레이블 회전 (긴 텍스트를 위해)
-                plt.xticks(rotation=0)
-                
-                st.pyplot(fig)
+                # 색상 범례 표시
+                st.markdown("**오행 색상:**")
+                cols = st.columns(5)
+                for i, (element, color) in enumerate(color_map.items()):
+                    cols[i].markdown(f"<div style='background-color:{color}; padding:10px; color:white; text-align:center; border-radius:5px'>{element}</div>", unsafe_allow_html=True)
+
+                # 원래 표 형태로도 표시
+                st.markdown("#### 오행 분포 상세")
+                st.dataframe(df)
                 
                 # 천간 오행
                 stems_elements = {
