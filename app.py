@@ -40,8 +40,20 @@ st.set_page_config(page_title="사주 계산기", page_icon="🔮", layout="wide
 # 세션 상태 초기화
 if 'saju_data' not in st.session_state:
     st.session_state.saju_data = None
+    
+# 메시지 세션 상태 초기화 및 마이그레이션
 if 'messages' not in st.session_state:
     st.session_state.messages = []
+else:
+    # 기존 메시지가 있으면 필요한 필드 추가
+    migrated_messages = []
+    for i, msg in enumerate(st.session_state.messages):
+        if isinstance(msg, dict):
+            if "id" not in msg and "role" in msg and "content" in msg:
+                msg["id"] = f"legacy_msg_{i}"
+            migrated_messages.append(msg)
+    st.session_state.messages = migrated_messages
+    
 if 'message_id_counter' not in st.session_state:
     st.session_state.message_id_counter = 0
 if 'analysis_guide' not in st.session_state:
@@ -53,6 +65,8 @@ if 'analysis_guide' not in st.session_state:
         st.session_state.analysis_guide = "분석 가이드를 불러오지 못했습니다: " + str(e)
 if 'user_input' not in st.session_state:
     st.session_state.user_input = ""
+if 'clear_input' not in st.session_state:
+    st.session_state.clear_input = False
 
 # 스트림 응답 개선 함수 - 상단에 함수 정의!
 def stream_response(response, message_placeholder):
@@ -856,105 +870,118 @@ else:
         
         # 메시지 표시
         for msg in st.session_state.messages:
-            if msg["role"] == "user":
-                # 사용자 메시지 전처리
-                processed_content = preprocess_markdown(msg["content"])
-                st.markdown(f"""
-                <div class="chat-container user-message" id="msg_{msg['id']}">
-                    <strong>👤 나:</strong>
-                    <div class="chat-msg-content">{processed_content}</div>
-                </div>
-                """, unsafe_allow_html=True)
-            else:
-                # 어시스턴트 메시지 전처리
-                processed_content = preprocess_markdown(msg["content"])
-                # 줄바꿈을 HTML <br> 태그로 변환
-                processed_content = processed_content.replace('\n', '<br>')
-                # 목록 형식은 별도로 처리
-                processed_content = processed_content.replace('<br>• ', '<br><span style="display:inline-block;width:10px;">• </span>')
+            try:
+                if not isinstance(msg, dict):
+                    continue
+                    
+                msg_role = msg.get("role", "")
+                msg_content = msg.get("content", "")
+                msg_id = msg.get("id", str(uuid.uuid4()))
                 
-                st.markdown(f"""
-                <div class="chat-container assistant-message" id="msg_{msg['id']}">
-                    <strong>🔮 사주 분석가:</strong>
-                    <div class="chat-msg-content">{processed_content}</div>
-                </div>
-                """, unsafe_allow_html=True)
+                if msg_role == "user":
+                    # 사용자 메시지 전처리
+                    processed_content = preprocess_markdown(msg_content)
+                    st.markdown(f"""
+                    <div class="chat-container user-message" id="msg_{msg_id}">
+                        <strong>👤 나:</strong>
+                        <div class="chat-msg-content">{processed_content}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                elif msg_role == "assistant":
+                    # 어시스턴트 메시지 전처리
+                    processed_content = preprocess_markdown(msg_content)
+                    # 줄바꿈을 HTML <br> 태그로 변환
+                    processed_content = processed_content.replace('\n', '<br>')
+                    # 목록 형식은 별도로 처리
+                    processed_content = processed_content.replace('<br>• ', '<br><span style="display:inline-block;width:10px;">• </span>')
+                    
+                    st.markdown(f"""
+                    <div class="chat-container assistant-message" id="msg_{msg_id}">
+                        <strong>🔮 사주 분석가:</strong>
+                        <div class="chat-msg-content">{processed_content}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+            except Exception as e:
+                st.error(f"메시지 표시 중 오류가 발생했습니다. 대화를 초기화해주세요.")
     
     # 메시지 제출 함수
     def submit_message(user_input):
-        if not user_input.strip():
-            return
+        try:
+            if not user_input.strip():
+                return
             
-        # 사용자 메시지 추가 (고유 ID 부여)
-        st.session_state.message_id_counter += 1
-        user_msg_id = f"msg_{st.session_state.message_id_counter}"
-        st.session_state.messages.append({"role": "user", "content": user_input, "id": user_msg_id})
-        
-        # 분석 가이드와 사주 데이터를 포함한 시스템 컨텍스트
-        saju_data = st.session_state.saju_data
-        
-        # 현재 날짜와 시간 정보 가져오기
-        current_time = datetime.now()
-        current_time_str = current_time.strftime("%Y년 %m월 %d일 %H시 %M분")
-        
-        # 생년월일 정보 가져오기
-        birth_info = ""
-        if "원본정보" in saju_data:
-            info = saju_data["원본정보"]
-            date_type = "음력" if info["is_lunar"] else "양력"
-            birth_info = f"{info['year']}년 {info['month']}월 {info['day']}일 {info['hour']}시 ({date_type}), 성별: {info['gender']}"
-        else:
-            # 이전 버전 호환성
-            양력정보 = saju_data["양력정보"]
-            birth_info = f"{양력정보['year']}년 {양력정보['month']}월 {양력정보['day']}일 {양력정보['hour']}시 (양력), 성별: {양력정보['gender']}"
-        
-        system_context = f"""
-        현재 시간: {current_time_str}
-        
-        당신은 사주명리학의 최고 전문가입니다. 다음 사주 데이터를 기반으로 질문에 답변하세요:
-        - 생년월일시: {birth_info}
-        - 연주: {saju_data['연주']}
-        - 월주: {saju_data['월주']}
-        - 일주: {saju_data['일주']}
-        - 시주: {saju_data['시주']}
-        - 일간: {saju_data['일간']}
-        - 오행 분포: {saju_data['오행개수']}
-        - 십이운성: {saju_data['십이운성']}
-        - 대운: {saju_data['대운']}
-        
-        반드시 아래의 '분석 가이드라인' 전체 내용을 참고하여 답변하세요:
-        - 분석 가이드라인:
-        {st.session_state.analysis_guide}
-        """
-        
-        # 기존 메시지 중 시스템 메시지 대체
-        context_messages = [{"role": "system", "content": system_context}]
-        # 사용자 메시지 추가 (ID 필드 제외)
-        for msg in st.session_state.messages:
-            if msg["role"] != "system":
-                context_messages.append({"role": msg["role"], "content": msg["content"]})
-        
-        # 응답 생성
-        with st.spinner("응답 작성 중..."):
-            # 스트리밍 응답을 위한 플레이스홀더
-            temp_placeholder = st.empty()
-            
-            # Stream API 호출 (기존 메시지도 컨텍스트로 포함)
-            response = analyze_saju_with_llm(user_input, context_messages)
-            
-            # 스트리밍 응답 처리
-            full_response = stream_response(response, temp_placeholder)
-            
-            # 대화 기록에 추가 (고유 ID 부여)
+            # 사용자 메시지 추가 (고유 ID 부여)
             st.session_state.message_id_counter += 1
-            assistant_msg_id = f"msg_{st.session_state.message_id_counter}"
-            st.session_state.messages.append({"role": "assistant", "content": full_response, "id": assistant_msg_id})
-        
-        # 입력값 초기화
-        st.session_state.clear_input = True
-        
-        # 재실행하여 UI 업데이트
-        st.rerun()
+            user_msg_id = f"msg_{st.session_state.message_id_counter}"
+            st.session_state.messages.append({"role": "user", "content": user_input, "id": user_msg_id})
+            
+            # 분석 가이드와 사주 데이터를 포함한 시스템 컨텍스트
+            saju_data = st.session_state.saju_data
+            
+            # 현재 날짜와 시간 정보 가져오기
+            current_time = datetime.now()
+            current_time_str = current_time.strftime("%Y년 %m월 %d일 %H시 %M분")
+            
+            # 생년월일 정보 가져오기
+            birth_info = ""
+            if "원본정보" in saju_data:
+                info = saju_data["원본정보"]
+                date_type = "음력" if info["is_lunar"] else "양력"
+                birth_info = f"{info['year']}년 {info['month']}월 {info['day']}일 {info['hour']}시 ({date_type}), 성별: {info['gender']}"
+            else:
+                # 이전 버전 호환성
+                양력정보 = saju_data["양력정보"]
+                birth_info = f"{양력정보['year']}년 {양력정보['month']}월 {양력정보['day']}일 {양력정보['hour']}시 (양력), 성별: {양력정보['gender']}"
+            
+            system_context = f"""
+            현재 시간: {current_time_str}
+            
+            당신은 사주명리학의 최고 전문가입니다. 다음 사주 데이터를 기반으로 질문에 답변하세요:
+            - 생년월일시: {birth_info}
+            - 연주: {saju_data['연주']}
+            - 월주: {saju_data['월주']}
+            - 일주: {saju_data['일주']}
+            - 시주: {saju_data['시주']}
+            - 일간: {saju_data['일간']}
+            - 오행 분포: {saju_data['오행개수']}
+            - 십이운성: {saju_data['십이운성']}
+            - 대운: {saju_data['대운']}
+            
+            반드시 아래의 '분석 가이드라인' 전체 내용을 참고하여 답변하세요:
+            - 분석 가이드라인:
+            {st.session_state.analysis_guide}
+            """
+            
+            # 기존 메시지 중 시스템 메시지 대체
+            context_messages = [{"role": "system", "content": system_context}]
+            # 사용자 메시지 추가 (ID 필드 제외)
+            for msg in st.session_state.messages:
+                if msg["role"] != "system":
+                    context_messages.append({"role": msg["role"], "content": msg["content"]})
+            
+            # 응답 생성
+            with st.spinner("응답 작성 중..."):
+                # 스트리밍 응답을 위한 플레이스홀더
+                temp_placeholder = st.empty()
+                
+                # Stream API 호출 (기존 메시지도 컨텍스트로 포함)
+                response = analyze_saju_with_llm(user_input, context_messages)
+                
+                # 스트리밍 응답 처리
+                full_response = stream_response(response, temp_placeholder)
+                
+                # 대화 기록에 추가 (고유 ID 부여)
+                st.session_state.message_id_counter += 1
+                assistant_msg_id = f"msg_{st.session_state.message_id_counter}"
+                st.session_state.messages.append({"role": "assistant", "content": full_response, "id": assistant_msg_id})
+            
+            # 입력값 초기화
+            st.session_state.clear_input = True
+            
+            # 재실행하여 UI 업데이트
+            st.rerun()
+        except Exception as e:
+            st.error("메시지 처리 중 오류가 발생했습니다. 페이지를 새로고침 후 다시 시도해주세요.")
     
     # 입력 영역 (하단에 고정)
     st.markdown("### 질문하기")
@@ -991,73 +1018,83 @@ else:
     # 초기 분석 시작 버튼
     if not st.session_state.messages:
         if st.button("🔮 사주 분석 시작하기", key="start_analysis_button_tab2"):
-            with st.spinner("사주를 분석 중입니다..."):
-                # 분석 가이드와 사주 데이터를 포함한 초기 프롬프트 구성
-                saju_data = st.session_state.saju_data
-                
-                # 현재 날짜와 시간 정보 가져오기
-                current_time = datetime.now()
-                current_time_str = current_time.strftime("%Y년 %m월 %d일 %H시 %M분")
-                
-                # 생년월일 정보 가져오기
-                birth_info = ""
-                if "원본정보" in saju_data:
-                    info = saju_data["원본정보"]
-                    date_type = "음력" if info["is_lunar"] else "양력"
-                    birth_info = f"{info['year']}년 {info['month']}월 {info['day']}일 {info['hour']}시 ({date_type}), 성별: {info['gender']}"
-                else:
-                    # 이전 버전 호환성
-                    양력정보 = saju_data["양력정보"]
-                    birth_info = f"{양력정보['year']}년 {양력정보['month']}월 {양력정보['day']}일 {양력정보['hour']}시 (양력), 성별: {양력정보['gender']}"
-                
-                initial_prompt = f"""
-                현재 시간: {current_time_str}
-                
-                다음은 사주 데이터입니다:
-                - 생년월일시: {birth_info}
-                - 연주: {saju_data['연주']}
-                - 월주: {saju_data['월주']}
-                - 일주: {saju_data['일주']}
-                - 시주: {saju_data['시주']}
-                - 일간: {saju_data['일간']}
-                - 오행 분포: {saju_data['오행개수']}
-                - 십이운성: {saju_data['십이운성']}
-                - 대운: {saju_data['대운']}
-                
-                다음은 사주 분석 가이드라인입니다:
-                {st.session_state.analysis_guide}
-                
-                위 가이드라인에 따라 이 사주에 대한 간략한 첫 인상과 이 사주의 가장 특징적인 부분을 알려주세요. 
-                그리고 어떤 항목들에 대해 더 자세히 알고 싶은지 물어봐주세요.
-                """
-                
-                # 스트리밍 응답을 위한 플레이스홀더
-                with st.empty():
-                    with st.spinner("사주를 분석 중입니다..."):
-                        # Stream API 호출
-                        response = analyze_saju_with_llm(initial_prompt)
-                        
-                        # 스트리밍 응답 처리를 위한 임시 컨테이너
-                        temp_placeholder = st.empty()
-                        full_response = stream_response(response, temp_placeholder)
-                        
-                        # 대화 기록에 추가
-                        st.session_state.message_id_counter += 1
-                        user_msg_id = f"msg_{st.session_state.message_id_counter}"
-                        st.session_state.messages.append({"role": "user", "content": "사주 분석을 시작해주세요.", "id": user_msg_id})
-                        
-                        st.session_state.message_id_counter += 1
-                        assistant_msg_id = f"msg_{st.session_state.message_id_counter}"
-                        st.session_state.messages.append({"role": "assistant", "content": full_response, "id": assistant_msg_id})
-                
-                # 재실행하여 UI 업데이트
-                st.rerun() 
+            try:
+                with st.spinner("사주를 분석 중입니다..."):
+                    # 분석 가이드와 사주 데이터를 포함한 초기 프롬프트 구성
+                    saju_data = st.session_state.saju_data
+                    
+                    # 현재 날짜와 시간 정보 가져오기
+                    current_time = datetime.now()
+                    current_time_str = current_time.strftime("%Y년 %m월 %d일 %H시 %M분")
+                    
+                    # 생년월일 정보 가져오기
+                    birth_info = ""
+                    if "원본정보" in saju_data:
+                        info = saju_data["원본정보"]
+                        date_type = "음력" if info["is_lunar"] else "양력"
+                        birth_info = f"{info['year']}년 {info['month']}월 {info['day']}일 {info['hour']}시 ({date_type}), 성별: {info['gender']}"
+                    else:
+                        # 이전 버전 호환성
+                        양력정보 = saju_data["양력정보"]
+                        birth_info = f"{양력정보['year']}년 {양력정보['month']}월 {양력정보['day']}일 {양력정보['hour']}시 (양력), 성별: {양력정보['gender']}"
+                    
+                    initial_prompt = f"""
+                    현재 시간: {current_time_str}
+                    
+                    다음은 사주 데이터입니다:
+                    - 생년월일시: {birth_info}
+                    - 연주: {saju_data['연주']}
+                    - 월주: {saju_data['월주']}
+                    - 일주: {saju_data['일주']}
+                    - 시주: {saju_data['시주']}
+                    - 일간: {saju_data['일간']}
+                    - 오행 분포: {saju_data['오행개수']}
+                    - 십이운성: {saju_data['십이운성']}
+                    - 대운: {saju_data['대운']}
+                    
+                    다음은 사주 분석 가이드라인입니다:
+                    {st.session_state.analysis_guide}
+                    
+                    위 가이드라인에 따라 이 사주에 대한 간략한 첫 인상과 이 사주의 가장 특징적인 부분을 알려주세요. 
+                    그리고 어떤 항목들에 대해 더 자세히 알고 싶은지 물어봐주세요.
+                    """
+                    
+                    # 스트리밍 응답을 위한 플레이스홀더
+                    with st.empty():
+                        with st.spinner("사주를 분석 중입니다..."):
+                            # Stream API 호출
+                            response = analyze_saju_with_llm(initial_prompt)
+                            
+                            # 스트리밍 응답 처리를 위한 임시 컨테이너
+                            temp_placeholder = st.empty()
+                            full_response = stream_response(response, temp_placeholder)
+                            
+                            # 대화 기록에 추가
+                            st.session_state.message_id_counter += 1
+                            user_msg_id = f"msg_{st.session_state.message_id_counter}"
+                            st.session_state.messages.append({"role": "user", "content": "사주 분석을 시작해주세요.", "id": user_msg_id})
+                            
+                            st.session_state.message_id_counter += 1
+                            assistant_msg_id = f"msg_{st.session_state.message_id_counter}"
+                            st.session_state.messages.append({"role": "assistant", "content": full_response, "id": assistant_msg_id})
+                    
+                    # 재실행하여 UI 업데이트
+                    st.rerun()
+            except Exception as e:
+                st.error("사주 분석 시작 중 오류가 발생했습니다. 페이지를 새로고침 후 다시 시도해주세요.")
 
 # 마크다운 전처리 함수
 def preprocess_markdown(text):
     """마크다운 텍스트를 전처리하여 줄바꿈 등의 문제를 해결합니다."""
     if not text:
         return ""
+    
+    # 타입 체크
+    if not isinstance(text, str):
+        try:
+            text = str(text)
+        except:
+            return ""
         
     # HTML 태그 이스케이프
     text = html.escape(text)
