@@ -850,12 +850,6 @@ else:
                 # 텍스트 보기로 표시
                 st.text_area("🔮 사주 분석가:", value=msg["content"], height=200, key=f"assistant_{len(msg['content'])}", disabled=True)
     
-    # Enter 키로 메시지 전송을 처리하는 함수
-    def handle_enter():
-        if st.session_state.user_input.strip():
-            submit_message(st.session_state.user_input)
-            st.session_state.user_input = ""
-    
     # 메시지 제출 함수
     def submit_message(user_input):
         # 사용자 메시지 추가
@@ -931,8 +925,7 @@ else:
         key="user_input",
         height=100,
         placeholder="예: '제 성격은 어떤가요?', '건강운은 어떤가요?', '적합한 직업은 무엇인가요?'",
-        label_visibility="collapsed",
-        on_change=handle_enter
+        label_visibility="collapsed"
     )
     
     # 대화하기 버튼
@@ -943,7 +936,7 @@ else:
             st.rerun()
     
     # 팁: Enter 키로 전송
-    st.caption("💡 **팁**: Enter 키를 누르면 메시지가 전송됩니다. 줄바꿈은 Shift+Enter를 사용하세요.")
+    st.caption("💡 **팁**: 대화하기 버튼을 클릭하여 메시지를 전송하세요.")
     
     # 초기 분석 시작 버튼
     if not st.session_state.messages:
