@@ -13,6 +13,7 @@ import matplotlib.font_manager as fm
 import platform
 import re
 import html  # HTML 이스케이프 라이브러리 추가
+import uuid  # 고유 ID 생성 라이브러리 추가
 
 # .env 파일 로드
 load_dotenv()
@@ -41,6 +42,8 @@ if 'saju_data' not in st.session_state:
     st.session_state.saju_data = None
 if 'messages' not in st.session_state:
     st.session_state.messages = []
+if 'message_id_counter' not in st.session_state:
+    st.session_state.message_id_counter = 0
 if 'analysis_guide' not in st.session_state:
     # analysisguide.md 파일 읽기
     try:
@@ -845,15 +848,17 @@ else:
         for msg in st.session_state.messages:
             if msg["role"] == "user":
                 # 텍스트 보기로 표시
-                st.text_area("👤 나:", value=msg["content"], height=80, key=f"user_{len(msg['content'])}", disabled=True)
+                st.text_area("👤 나:", value=msg["content"], height=80, key=f"user_{msg['id']}", disabled=True)
             else:
                 # 텍스트 보기로 표시
-                st.text_area("🔮 사주 분석가:", value=msg["content"], height=200, key=f"assistant_{len(msg['content'])}", disabled=True)
+                st.text_area("🔮 사주 분석가:", value=msg["content"], height=200, key=f"assistant_{msg['id']}", disabled=True)
     
     # 메시지 제출 함수
     def submit_message(user_input):
-        # 사용자 메시지 추가
-        st.session_state.messages.append({"role": "user", "content": user_input})
+        # 사용자 메시지 추가 (고유 ID 부여)
+        st.session_state.message_id_counter += 1
+        user_msg_id = f"msg_{st.session_state.message_id_counter}"
+        st.session_state.messages.append({"role": "user", "content": user_input, "id": user_msg_id})
         
         # 분석 가이드와 사주 데이터를 포함한 시스템 컨텍스트
         saju_data = st.session_state.saju_data
@@ -894,10 +899,10 @@ else:
         
         # 기존 메시지 중 시스템 메시지 대체
         context_messages = [{"role": "system", "content": system_context}]
-        # 사용자 메시지 추가
+        # 사용자 메시지 추가 (ID 필드 제외)
         for msg in st.session_state.messages:
             if msg["role"] != "system":
-                context_messages.append(msg)
+                context_messages.append({"role": msg["role"], "content": msg["content"]})
         
         # 응답 생성
         with st.spinner("응답 작성 중..."):
@@ -910,8 +915,10 @@ else:
             # 스트리밍 응답 처리
             full_response = stream_response(response, temp_placeholder)
             
-            # 대화 기록에 추가
-            st.session_state.messages.append({"role": "assistant", "content": full_response})
+            # 대화 기록에 추가 (고유 ID 부여)
+            st.session_state.message_id_counter += 1
+            assistant_msg_id = f"msg_{st.session_state.message_id_counter}"
+            st.session_state.messages.append({"role": "assistant", "content": full_response, "id": assistant_msg_id})
         
         # 재실행하여 UI 업데이트
         st.rerun()
@@ -992,8 +999,13 @@ else:
                         full_response = stream_response(response, temp_placeholder)
                         
                         # 대화 기록에 추가
-                        st.session_state.messages.append({"role": "user", "content": "사주 분석을 시작해주세요."})
-                        st.session_state.messages.append({"role": "assistant", "content": full_response})
+                        st.session_state.message_id_counter += 1
+                        user_msg_id = f"msg_{st.session_state.message_id_counter}"
+                        st.session_state.messages.append({"role": "user", "content": "사주 분석을 시작해주세요.", "id": user_msg_id})
+                        
+                        st.session_state.message_id_counter += 1
+                        assistant_msg_id = f"msg_{st.session_state.message_id_counter}"
+                        st.session_state.messages.append({"role": "assistant", "content": full_response, "id": assistant_msg_id})
                 
                 # 재실행하여 UI 업데이트
                 st.rerun() 
