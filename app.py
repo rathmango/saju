@@ -716,8 +716,22 @@ if submit_button:
                 st.markdown("### 🔥 오행 분석")
                 elements = saju["오행개수"]
                 
+                # 오행 이름 영어로 변환 (한글이 깨지는 문제 해결)
+                elements_korean = list(elements.keys())
+                elements_english = ['Wood', 'Fire', 'Earth', 'Metal', 'Water']
+                
+                # 한글과 영어 매핑
+                elements_mapping = {
+                    '목': 'Wood(목)',
+                    '화': 'Fire(화)',
+                    '토': 'Earth(토)',
+                    '금': 'Metal(금)',
+                    '수': 'Water(수)'
+                }
+                
+                # 데이터 준비
                 elements_data = {
-                    "오행": list(elements.keys()),
+                    "오행": [elements_mapping[k] for k in elements.keys()],
                     "개수": list(elements.values())
                 }
                 
@@ -728,11 +742,11 @@ if submit_button:
                 
                 # 오행 색상 및 이름 맵핑
                 color_map = {
-                    '목': '#228B22',  # 진한 녹색
-                    '화': '#FF4500',  # 붉은색
-                    '토': '#8B4513',  # 갈색
-                    '금': '#DAA520',  # 황금색
-                    '수': '#1E90FF'   # 파란색
+                    'Wood(목)': '#228B22',  # 진한 녹색
+                    'Fire(화)': '#FF4500',  # 붉은색
+                    'Earth(토)': '#8B4513',  # 갈색
+                    'Metal(금)': '#DAA520',  # 황금색
+                    'Water(수)': '#1E90FF'   # 파란색
                 }
                 
                 colors = [color_map[element] for element in ohaeng]
@@ -760,6 +774,9 @@ if submit_button:
                                 fontsize=12,
                                 fontweight='bold',
                                 ha='center', va='bottom')
+                
+                # x축 레이블 회전 (긴 텍스트를 위해)
+                plt.xticks(rotation=0)
                 
                 st.pyplot(fig)
                 
