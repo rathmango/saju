@@ -813,19 +813,14 @@ else:
     .assistant-message {
         border-left: 5px solid #7c7c7c;
     }
-    .reset-button {
-        position: absolute;
-        right: 10px;
-        top: 10px;
-    }
-    pre {
+    .chat-msg-content {
         white-space: pre-wrap;
-        word-wrap: break-word;
-        background-color: #f9f9f9;
-        padding: 10px;
-        border-radius: 5px;
-        font-family: monospace;
-        font-size: 14px;
+        overflow-wrap: break-word;
+        font-size: 16px;
+        line-height: 1.5;
+    }
+    .stTextArea textarea {
+        font-size: 16px;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -847,14 +842,27 @@ else:
         # 메시지 표시
         for msg in st.session_state.messages:
             if msg["role"] == "user":
-                # 텍스트 보기로 표시
-                st.text_area("👤 나:", value=msg["content"], height=80, key=f"user_{msg['id']}", disabled=True)
+                # HTML로 표시 (텍스트 영역 대신)
+                st.markdown(f"""
+                <div class="chat-container user-message" id="msg_{msg['id']}">
+                    <strong>👤 나:</strong>
+                    <div class="chat-msg-content">{html.escape(msg["content"])}</div>
+                </div>
+                """, unsafe_allow_html=True)
             else:
-                # 텍스트 보기로 표시
-                st.text_area("🔮 사주 분석가:", value=msg["content"], height=200, key=f"assistant_{msg['id']}", disabled=True)
+                # HTML로 표시 (텍스트 영역 대신)
+                st.markdown(f"""
+                <div class="chat-container assistant-message" id="msg_{msg['id']}">
+                    <strong>🔮 사주 분석가:</strong>
+                    <div class="chat-msg-content">{html.escape(msg["content"])}</div>
+                </div>
+                """, unsafe_allow_html=True)
     
     # 메시지 제출 함수
     def submit_message(user_input):
+        if not user_input.strip():
+            return
+            
         # 사용자 메시지 추가 (고유 ID 부여)
         st.session_state.message_id_counter += 1
         user_msg_id = f"msg_{st.session_state.message_id_counter}"
@@ -926,7 +934,23 @@ else:
     # 입력 영역 (하단에 고정)
     st.markdown("### 질문하기")
     
-    # 입력 영역 - on_change 이벤트 사용
+    # Option+Enter 키 처리 JavaScript 추가
+    st.markdown("""
+    <script>
+    // Option+Enter 키 처리
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && e.altKey) {
+            const buttons = Array.from(document.querySelectorAll('button'));
+            const submitButton = buttons.find(button => button.innerText.includes('대화하기'));
+            if (submitButton) {
+                submitButton.click();
+            }
+        }
+    });
+    </script>
+    """, unsafe_allow_html=True)
+    
+    # 입력 필드
     user_input = st.text_area(
         "사주에 대해 궁금한 점을 입력하세요:",
         key="user_input",
@@ -939,11 +963,12 @@ else:
     if st.button("💬 대화하기", key="submit_chat"):
         if user_input.strip():
             submit_message(user_input)
+            # 입력 초기화 (세션 상태 활용)
             st.session_state.user_input = ""
             st.rerun()
     
-    # 팁: Enter 키로 전송
-    st.caption("💡 **팁**: 대화하기 버튼을 클릭하여 메시지를 전송하세요.")
+    # 팁: Option+Enter 키로 전송
+    st.caption("💡 **팁**: Option+Enter 키를 누르면 메시지가 전송됩니다.")
     
     # 초기 분석 시작 버튼
     if not st.session_state.messages:
