@@ -111,6 +111,34 @@ def stream_response(response, message_placeholder):
     
     return full_response
 
+# 마크다운 전처리 함수
+def preprocess_markdown(text):
+    """마크다운 텍스트를 전처리하여 줄바꿈 등의 문제를 해결합니다."""
+    if not text:
+        return ""
+    
+    # 타입 체크
+    if not isinstance(text, str):
+        try:
+            text = str(text)
+        except:
+            return ""
+        
+    # HTML 태그 이스케이프
+    text = html.escape(text)
+    
+    # 줄바꿈 처리 개선
+    text = text.replace('\n\n\n', '\n\n')  # 과도한 줄바꿈 줄이기
+    
+    # 목록 앞 여백 줄이기
+    text = re.sub(r'\n\n- ', '\n- ', text)
+    text = re.sub(r'\n\n\d+\. ', '\n\d+\. ', text)
+    
+    # 특수문자 처리
+    text = text.replace('•', '&#8226;')  # 불릿 포인트 처리
+    
+    return text 
+
 # ================ 사주 분석 함수 ================
 def analyze_saju_with_llm(prompt, messages=None, stream=True):
     """OpenAI API를 사용하여 사주를 분석합니다."""
@@ -811,99 +839,6 @@ if not OPENAI_API_KEY:
 elif st.session_state.saju_data is None:
     st.info("먼저 위에서 사주를 계산해주세요.")
 else:
-    # 챗봇 UI 개선
-    st.markdown("""
-    <style>
-    .chat-container {
-        padding: 15px;
-        border-radius: 10px;
-        margin-bottom: 15px;
-        background-color: white;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
-    }
-    .user-message {
-        border-left: 5px solid #1890ff;
-    }
-    .assistant-message {
-        border-left: 5px solid #7c7c7c;
-    }
-    .chat-msg-content {
-        white-space: pre-wrap;
-        overflow-wrap: break-word;
-        font-size: 16px;
-        line-height: 1.5;
-    }
-    /* 추가된 스타일: 줄간격 조정 */
-    .chat-msg-content p {
-        margin-bottom: 0.5em;
-    }
-    .chat-msg-content ul, .chat-msg-content ol {
-        margin-top: 0.5em;
-        margin-bottom: 0.5em;
-        padding-left: 1.5em;
-    }
-    .chat-msg-content li {
-        margin-bottom: 0.3em;
-    }
-    .chat-msg-content hr {
-        margin: 0.5em 0;
-    }
-    .stTextArea textarea {
-        font-size: 16px;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-    # 대화 초기화 버튼 (상단으로 이동)
-    col1, col2 = st.columns([4, 1])
-    with col2:
-        if st.button("🔄 대화 초기화", key="reset_chat_button_tab2"):
-            st.session_state.messages = []
-            st.rerun()
-
-    # 채팅 메시지 표시 (고정된 높이의 컨테이너에)
-    chat_container = st.container()
-    
-    with chat_container:
-        if not st.session_state.messages:
-            st.info("👋 사주에 대해 궁금한 점을 물어보세요. 사주 분석 시작하기 버튼을 클릭하여 기본 분석을 받아보세요.")
-        
-        # 메시지 표시
-        for msg in st.session_state.messages:
-            try:
-                if not isinstance(msg, dict):
-                    continue
-                    
-                msg_role = msg.get("role", "")
-                msg_content = msg.get("content", "")
-                msg_id = msg.get("id", str(uuid.uuid4()))
-                
-                if msg_role == "user":
-                    # 사용자 메시지 전처리
-                    processed_content = preprocess_markdown(msg_content)
-                    st.markdown(f"""
-                    <div class="chat-container user-message" id="msg_{msg_id}">
-                        <strong>👤 나:</strong>
-                        <div class="chat-msg-content">{processed_content}</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                elif msg_role == "assistant":
-                    # 어시스턴트 메시지 전처리
-                    processed_content = preprocess_markdown(msg_content)
-                    # 줄바꿈을 HTML <br> 태그로 변환
-                    processed_content = processed_content.replace('\n', '<br>')
-                    # 목록 형식은 별도로 처리
-                    processed_content = processed_content.replace('<br>• ', '<br><span style="display:inline-block;width:10px;">• </span>')
-                    
-                    st.markdown(f"""
-                    <div class="chat-container assistant-message" id="msg_{msg_id}">
-                        <strong>🔮 사주 분석가:</strong>
-                        <div class="chat-msg-content">{processed_content}</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-            except Exception as e:
-                st.error(f"메시지 표시 중 오류가 발생했습니다. 대화를 초기화해주세요.")
-    
     # 메시지 제출 함수
     def submit_message(user_input):
         try:
@@ -975,138 +910,235 @@ else:
                 assistant_msg_id = f"msg_{st.session_state.message_id_counter}"
                 st.session_state.messages.append({"role": "assistant", "content": full_response, "id": assistant_msg_id})
             
-            # 입력값 초기화
-            st.session_state.clear_input = True
-            
             # 재실행하여 UI 업데이트
             st.rerun()
         except Exception as e:
-            st.error("메시지 처리 중 오류가 발생했습니다. 페이지를 새로고침 후 다시 시도해주세요.")
+            st.error(f"메시지 처리 중 오류가 발생했습니다: {str(e)}")
+
+    # 챗봇 UI 개선
+    st.markdown("""
+    <style>
+    .chat-container {
+        padding: 15px;
+        border-radius: 10px;
+        margin-bottom: 15px;
+        background-color: white;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+    }
+    .user-message {
+        border-left: 5px solid #1890ff;
+    }
+    .assistant-message {
+        border-left: 5px solid #7c7c7c;
+    }
+    .chat-msg-content {
+        white-space: pre-wrap;
+        overflow-wrap: break-word;
+        font-size: 16px;
+        line-height: 1.5;
+    }
+    /* 추가된 스타일: 줄간격 조정 */
+    .chat-msg-content p {
+        margin-bottom: 0.5em;
+    }
+    .chat-msg-content ul, .chat-msg-content ol {
+        margin-top: 0.5em;
+        margin-bottom: 0.5em;
+        padding-left: 1.5em;
+    }
+    .chat-msg-content li {
+        margin-bottom: 0.3em;
+    }
+    .chat-msg-content hr {
+        margin: 0.5em 0;
+    }
+    .stTextArea textarea {
+        font-size: 16px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # 대화 초기화 버튼 (상단으로 이동)
+    col1, col2 = st.columns([4, 1])
+    with col2:
+        # 초기화 콜백 함수 설정
+        if 'reset_chat_clicked' not in st.session_state:
+            st.session_state.reset_chat_clicked = False
+        
+        # 초기화 콜백 함수
+        def handle_reset_chat():
+            st.session_state.reset_chat_clicked = True
+        
+        st.button("🔄 대화 초기화", on_click=handle_reset_chat, key="reset_chat_button")
+        
+        # 버튼 클릭 처리
+        if st.session_state.reset_chat_clicked:
+            st.session_state.messages = []
+            st.session_state.reset_chat_clicked = False
+            st.rerun()
+
+    # 채팅 메시지 표시 (고정된 높이의 컨테이너에)
+    chat_container = st.container()
+    
+    with chat_container:
+        if not st.session_state.messages:
+            st.info("👋 사주에 대해 궁금한 점을 물어보세요. 사주 분석 시작하기 버튼을 클릭하여 기본 분석을 받아보세요.")
+        
+        # 메시지 표시
+        for msg in st.session_state.messages:
+            try:
+                if not isinstance(msg, dict):
+                    continue
+                    
+                msg_role = msg.get("role", "")
+                msg_content = msg.get("content", "")
+                msg_id = msg.get("id", str(uuid.uuid4()))
+                
+                if msg_role == "user":
+                    # 사용자 메시지 전처리
+                    processed_content = preprocess_markdown(msg_content)
+                    st.markdown(f"""
+                    <div class="chat-container user-message" id="msg_{msg_id}">
+                        <strong>👤 나:</strong>
+                        <div class="chat-msg-content">{processed_content}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                elif msg_role == "assistant":
+                    # 어시스턴트 메시지 전처리
+                    processed_content = preprocess_markdown(msg_content)
+                    # 줄바꿈을 HTML <br> 태그로 변환
+                    processed_content = processed_content.replace('\n', '<br>')
+                    # 목록 형식은 별도로 처리
+                    processed_content = processed_content.replace('<br>• ', '<br><span style="display:inline-block;width:10px;">• </span>')
+                    
+                    st.markdown(f"""
+                    <div class="chat-container assistant-message" id="msg_{msg_id}">
+                        <strong>🔮 사주 분석가:</strong>
+                        <div class="chat-msg-content">{processed_content}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+            except Exception as e:
+                st.error(f"메시지 표시 중 오류가 발생했습니다. 대화를 초기화해주세요.")
     
     # 입력 영역 (하단에 고정)
     st.markdown("### 질문하기")
-    
-    # 입력값 초기화 처리
-    if 'clear_input' not in st.session_state:
-        st.session_state.clear_input = False
-    
-    # 폼으로 감싸기 (Option+Enter 작동을 위해)
-    with st.form(key="chat_input_form", clear_on_submit=True):
-        # 입력 필드
-        user_input = st.text_area(
+
+    # 입력 필드와 버튼 분리
+    col1, col2 = st.columns([5, 1])
+
+    # 콜백 함수 - 입력 처리를 위한 상태 변수 초기화
+    if 'submit_clicked' not in st.session_state:
+        st.session_state.submit_clicked = False
+
+    # 버튼 콜백 함수
+    def handle_submit():
+        # 제출 플래그 설정
+        st.session_state.submit_clicked = True
+
+    # 입력 필드 (상태 변수로부터 값 사용)
+    with col1:
+        temp_input = st.text_area(
             "사주에 대해 궁금한 점을 입력하세요:",
-            key="user_input",
             height=100,
             placeholder="예: '제 성격은 어떤가요?', '건강운은 어떤가요?', '적합한 직업은 무엇인가요?'",
             label_visibility="collapsed"
         )
-        
-        # 메시지 클리어 처리
-        if st.session_state.clear_input:
-            st.session_state.user_input = ""
-            st.session_state.clear_input = False
-        
-        # 대화하기 버튼
-        submit_button = st.form_submit_button("💬 대화하기")
-        
-        # 팁: Option+Enter 키로 전송
-        st.caption("💡 **팁**: Option+Enter 키를 누르면 메시지가 전송됩니다.")
-    
-    if submit_button and user_input.strip():
-        submit_message(user_input)
-    
-    # 초기 분석 시작 버튼
-    if not st.session_state.messages:
-        if st.button("🔮 사주 분석 시작하기", key="start_analysis_button_tab2"):
-            try:
-                with st.spinner("사주를 분석 중입니다..."):
-                    # 분석 가이드와 사주 데이터를 포함한 초기 프롬프트 구성
-                    saju_data = st.session_state.saju_data
-                    
-                    # 현재 날짜와 시간 정보 가져오기
-                    current_time = datetime.now()
-                    current_time_str = current_time.strftime("%Y년 %m월 %d일 %H시 %M분")
-                    
-                    # 생년월일 정보 가져오기
-                    birth_info = ""
-                    if "원본정보" in saju_data:
-                        info = saju_data["원본정보"]
-                        date_type = "음력" if info["is_lunar"] else "양력"
-                        birth_info = f"{info['year']}년 {info['month']}월 {info['day']}일 {info['hour']}시 ({date_type}), 성별: {info['gender']}"
-                    else:
-                        # 이전 버전 호환성
-                        양력정보 = saju_data["양력정보"]
-                        birth_info = f"{양력정보['year']}년 {양력정보['month']}월 {양력정보['day']}일 {양력정보['hour']}시 (양력), 성별: {양력정보['gender']}"
-                    
-                    initial_prompt = f"""
-                    현재 시간: {current_time_str}
-                    
-                    다음은 사주 데이터입니다:
-                    - 생년월일시: {birth_info}
-                    - 연주: {saju_data['연주']}
-                    - 월주: {saju_data['월주']}
-                    - 일주: {saju_data['일주']}
-                    - 시주: {saju_data['시주']}
-                    - 일간: {saju_data['일간']}
-                    - 오행 분포: {saju_data['오행개수']}
-                    - 십이운성: {saju_data['십이운성']}
-                    - 대운: {saju_data['대운']}
-                    
-                    다음은 사주 분석 가이드라인입니다:
-                    {st.session_state.analysis_guide}
-                    
-                    위 가이드라인에 따라 이 사주에 대한 간략한 첫 인상과 이 사주의 가장 특징적인 부분을 알려주세요. 
-                    그리고 어떤 항목들에 대해 더 자세히 알고 싶은지 물어봐주세요.
-                    """
-                    
-                    # 스트리밍 응답을 위한 플레이스홀더
-                    with st.empty():
-                        with st.spinner("사주를 분석 중입니다..."):
-                            # Stream API 호출
-                            response = analyze_saju_with_llm(initial_prompt)
-                            
-                            # 스트리밍 응답 처리를 위한 임시 컨테이너
-                            temp_placeholder = st.empty()
-                            full_response = stream_response(response, temp_placeholder)
-                            
-                            # 대화 기록에 추가
-                            st.session_state.message_id_counter += 1
-                            user_msg_id = f"msg_{st.session_state.message_id_counter}"
-                            st.session_state.messages.append({"role": "user", "content": "사주 분석을 시작해주세요.", "id": user_msg_id})
-                            
-                            st.session_state.message_id_counter += 1
-                            assistant_msg_id = f"msg_{st.session_state.message_id_counter}"
-                            st.session_state.messages.append({"role": "assistant", "content": full_response, "id": assistant_msg_id})
-                    
-                    # 재실행하여 UI 업데이트
-                    st.rerun()
-            except Exception as e:
-                st.error("사주 분석 시작 중 오류가 발생했습니다. 페이지를 새로고침 후 다시 시도해주세요.")
 
-# 마크다운 전처리 함수
-def preprocess_markdown(text):
-    """마크다운 텍스트를 전처리하여 줄바꿈 등의 문제를 해결합니다."""
-    if not text:
-        return ""
-    
-    # 타입 체크
-    if not isinstance(text, str):
-        try:
-            text = str(text)
-        except:
-            return ""
+    # 제출 버튼
+    with col2:
+        st.button("💬 대화하기", on_click=handle_submit, key="submit_chat_button")
+
+    # 팁
+    st.caption("💡 **팁**: 메시지를 입력한 후 대화하기 버튼을 클릭하세요.")
+
+    # 버튼이 클릭되었고 입력값이 있는 경우 처리
+    if st.session_state.submit_clicked and temp_input.strip():
+        # 메시지 제출
+        submit_message(temp_input)
+        # 제출 플래그 초기화
+        st.session_state.submit_clicked = False
+
+# 초기 분석 시작 버튼
+if not st.session_state.messages:
+    # 분석 시작 콜백 함수 설정 변수
+    if 'start_analysis_clicked' not in st.session_state:
+        st.session_state.start_analysis_clicked = False
         
-    # HTML 태그 이스케이프
-    text = html.escape(text)
+    # 분석 시작 콜백 함수
+    def handle_start_analysis():
+        st.session_state.start_analysis_clicked = True
+        
+    if st.button("🔮 사주 분석 시작하기", on_click=handle_start_analysis, key="start_analysis_button_tab2"):
+        pass  # 콜백으로 처리하므로 여기서는 아무것도 하지 않음
     
-    # 줄바꿈 처리 개선
-    text = text.replace('\n\n\n', '\n\n')  # 과도한 줄바꿈 줄이기
-    
-    # 목록 앞 여백 줄이기
-    text = re.sub(r'\n\n- ', '\n- ', text)
-    text = re.sub(r'\n\n\d+\. ', '\n\d+\. ', text)
-    
-    # 특수문자 처리
-    text = text.replace('•', '&#8226;')  # 불릿 포인트 처리
-    
-    return text 
+    # 버튼 클릭 시 실제 처리
+    if st.session_state.start_analysis_clicked:
+        try:
+            with st.spinner("사주를 분석 중입니다..."):
+                # 분석 가이드와 사주 데이터를 포함한 초기 프롬프트 구성
+                saju_data = st.session_state.saju_data
+                
+                # 현재 날짜와 시간 정보 가져오기
+                current_time = datetime.now()
+                current_time_str = current_time.strftime("%Y년 %m월 %d일 %H시 %M분")
+                
+                # 생년월일 정보 가져오기
+                birth_info = ""
+                if "원본정보" in saju_data:
+                    info = saju_data["원본정보"]
+                    date_type = "음력" if info["is_lunar"] else "양력"
+                    birth_info = f"{info['year']}년 {info['month']}월 {info['day']}일 {info['hour']}시 ({date_type}), 성별: {info['gender']}"
+                else:
+                    # 이전 버전 호환성
+                    양력정보 = saju_data["양력정보"]
+                    birth_info = f"{양력정보['year']}년 {양력정보['month']}월 {양력정보['day']}일 {양력정보['hour']}시 (양력), 성별: {양력정보['gender']}"
+                
+                initial_prompt = f"""
+                현재 시간: {current_time_str}
+                
+                다음은 사주 데이터입니다:
+                - 생년월일시: {birth_info}
+                - 연주: {saju_data['연주']}
+                - 월주: {saju_data['월주']}
+                - 일주: {saju_data['일주']}
+                - 시주: {saju_data['시주']}
+                - 일간: {saju_data['일간']}
+                - 오행 분포: {saju_data['오행개수']}
+                - 십이운성: {saju_data['십이운성']}
+                - 대운: {saju_data['대운']}
+                
+                다음은 사주 분석 가이드라인입니다:
+                {st.session_state.analysis_guide}
+                
+                위 가이드라인에 따라 이 사주에 대한 간략한 첫 인상과 이 사주의 가장 특징적인 부분을 알려주세요. 
+                그리고 어떤 항목들에 대해 더 자세히 알고 싶은지 물어봐주세요.
+                """
+                
+                # 스트리밍 응답을 위한 플레이스홀더
+                with st.empty():
+                    with st.spinner("사주를 분석 중입니다..."):
+                        # Stream API 호출
+                        response = analyze_saju_with_llm(initial_prompt)
+                        
+                        # 스트리밍 응답 처리를 위한 임시 컨테이너
+                        temp_placeholder = st.empty()
+                        full_response = stream_response(response, temp_placeholder)
+                        
+                        # 대화 기록에 추가
+                        st.session_state.message_id_counter += 1
+                        user_msg_id = f"msg_{st.session_state.message_id_counter}"
+                        st.session_state.messages.append({"role": "user", "content": "사주 분석을 시작해주세요.", "id": user_msg_id})
+                        
+                        st.session_state.message_id_counter += 1
+                        assistant_msg_id = f"msg_{st.session_state.message_id_counter}"
+                        st.session_state.messages.append({"role": "assistant", "content": full_response, "id": assistant_msg_id})
+                
+                # 플래그 초기화
+                st.session_state.start_analysis_clicked = False
+                
+                # 재실행하여 UI 업데이트
+                st.rerun()
+        except Exception as e:
+            st.error(f"사주 분석 시작 중 오류가 발생했습니다: {str(e)}")
+            # 오류 발생 시에도 플래그 초기화
+            st.session_state.start_analysis_clicked = False 
