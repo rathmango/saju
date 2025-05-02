@@ -17,6 +17,7 @@ import uuid  # 고유 ID 생성 라이브러리 추가
 from supabase import create_client  # Supabase 클라이언트 추가
 from modules.manseryeok import adjust_time_for_manseryeok, format_time_adjustment  # 만세력 시간 보정 유틸리티
 from modules.chat import submit_message, start_analysis, reset_chat  # 챗봇 관련 함수 추가
+from modules.saju_calc import calculate_saju  # 사주 계산 함수 추가
 
 # 지역별 경도/위도 데이터 (도.분 형식)
 REGION_COORDINATES = {
