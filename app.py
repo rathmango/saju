@@ -9,6 +9,23 @@ import numpy as np
 from dotenv import load_dotenv
 import openai
 import json
+import matplotlib.font_manager as fm
+import platform
+
+# matplotlib 한글 폰트 설정 (OS별로 다른 폰트 적용)
+system = platform.system()
+if system == 'Darwin':  # macOS
+    plt.rcParams['font.family'] = 'AppleGothic'
+elif system == 'Windows':  # Windows
+    plt.rcParams['font.family'] = 'Malgun Gothic'
+else:  # Linux 등
+    # 나눔 폰트가 설치되어 있다면 사용
+    font_list = [f.name for f in fm.fontManager.ttflist]
+    if any('Nanum' in font for font in font_list):
+        plt.rcParams['font.family'] = [font for font in font_list if 'Nanum' in font][0]
+
+# 마이너스 기호 깨짐 방지
+plt.rcParams['axes.unicode_minus'] = False
 
 # .env 파일 로드
 load_dotenv()
@@ -550,12 +567,11 @@ with st.sidebar:
     is_api_key_set = check_api_key()
     
     if is_api_key_set:
-        st.success("✅ API 키가 .env 파일에서 로드되었습니다.")
+        st.success("✅ 사주 상세 분석이 가능한 상태입니다")
     
     st.markdown("---")
     st.markdown("### 📝 앱 정보")
     st.markdown("이 앱은 한국 전통 사주명리학을 기반으로 사주를 계산하고 분석합니다.")
-    st.markdown("OpenAI API를 사용하여 전문적인 사주 해석을 제공합니다.")
 
 # 탭 구조 제거 - 하나의 흐름으로 구성
 st.title("🔮 사주 계산기 & 분석")
@@ -706,14 +722,33 @@ if submit_button:
                 }
                 
                 # bar_chart 대신 matplotlib 사용
-                fig, ax = plt.figure(figsize=(10, 6)), plt.subplot()
+                fig, ax = plt.figure(figsize=(8, 5)), plt.subplot()
                 ohaeng = elements_data["오행"]
                 counts = elements_data["개수"]
-                colors = ['green', 'red', 'brown', 'gold', 'blue']  # 목(녹), 화(적), 토(갈), 금(황), 수(청)
                 
-                bars = ax.bar(ohaeng, counts, color=colors)
-                ax.set_ylabel('개수')
-                ax.set_title('오행 분포')
+                # 오행 색상 및 이름 맵핑
+                color_map = {
+                    '목': '#228B22',  # 진한 녹색
+                    '화': '#FF4500',  # 붉은색
+                    '토': '#8B4513',  # 갈색
+                    '금': '#DAA520',  # 황금색
+                    '수': '#1E90FF'   # 파란색
+                }
+                
+                colors = [color_map[element] for element in ohaeng]
+                
+                # 그래프 그리기
+                bars = ax.bar(ohaeng, counts, color=colors, width=0.6)
+                
+                # 눈금선 스타일 설정
+                ax.grid(axis='y', linestyle='--', alpha=0.7)
+                
+                # 축 레이블과 제목 설정
+                ax.set_ylabel('개수', fontsize=12)
+                ax.set_title('오행 분포', fontsize=14, fontweight='bold')
+                
+                # 배경색 설정
+                ax.set_facecolor('#f8f9fa')
                 
                 # 각 막대 위에 값 표시
                 for bar in bars:
@@ -722,6 +757,8 @@ if submit_button:
                                 xy=(bar.get_x() + bar.get_width() / 2, height),
                                 xytext=(0, 3),  # 3 points vertical offset
                                 textcoords="offset points",
+                                fontsize=12,
+                                fontweight='bold',
                                 ha='center', va='bottom')
                 
                 st.pyplot(fig)
@@ -955,7 +992,8 @@ else:
         - 십이운성: {saju_data['십이운성']}
         - 대운: {saju_data['대운'][:3]}
         
-        분석 가이드라인:
+        매번 답변시 반드시 아래 분석 가이드라인 전체 내용을 참고하여 답변해주세요.
+        - 분석 가이드라인:
         {st.session_state.analysis_guide}
         """
         
