@@ -797,7 +797,7 @@ if not OPENAI_API_KEY:
 elif st.session_state.saju_data is None:
     st.info("먼저 위에서 사주를 계산해주세요.")
 else:
-    # 챗봇 UI 개선
+    # 채팅 UI 개선
     st.markdown("""
     <style>
     .chat-container {
@@ -928,47 +928,43 @@ else:
             assistant_msg_id = f"msg_{st.session_state.message_id_counter}"
             st.session_state.messages.append({"role": "assistant", "content": full_response, "id": assistant_msg_id})
         
+        # 입력값 초기화
+        st.session_state.clear_input = True
+        
         # 재실행하여 UI 업데이트
         st.rerun()
     
     # 입력 영역 (하단에 고정)
     st.markdown("### 질문하기")
     
-    # Option+Enter 키 처리 JavaScript 추가
-    st.markdown("""
-    <script>
-    // Option+Enter 키 처리
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter' && e.altKey) {
-            const buttons = Array.from(document.querySelectorAll('button'));
-            const submitButton = buttons.find(button => button.innerText.includes('대화하기'));
-            if (submitButton) {
-                submitButton.click();
-            }
-        }
-    });
-    </script>
-    """, unsafe_allow_html=True)
+    # 입력값 초기화 처리
+    if 'clear_input' not in st.session_state:
+        st.session_state.clear_input = False
     
-    # 입력 필드
-    user_input = st.text_area(
-        "사주에 대해 궁금한 점을 입력하세요:",
-        key="user_input",
-        height=100,
-        placeholder="예: '제 성격은 어떤가요?', '건강운은 어떤가요?', '적합한 직업은 무엇인가요?'",
-        label_visibility="collapsed"
-    )
-    
-    # 대화하기 버튼
-    if st.button("💬 대화하기", key="submit_chat"):
-        if user_input.strip():
-            submit_message(user_input)
-            # 입력 초기화 (세션 상태 활용)
+    # 폼으로 감싸기 (Option+Enter 작동을 위해)
+    with st.form(key="chat_input_form", clear_on_submit=True):
+        # 입력 필드
+        user_input = st.text_area(
+            "사주에 대해 궁금한 점을 입력하세요:",
+            key="user_input",
+            height=100,
+            placeholder="예: '제 성격은 어떤가요?', '건강운은 어떤가요?', '적합한 직업은 무엇인가요?'",
+            label_visibility="collapsed"
+        )
+        
+        # 메시지 클리어 처리
+        if st.session_state.clear_input:
             st.session_state.user_input = ""
-            st.rerun()
+            st.session_state.clear_input = False
+        
+        # 대화하기 버튼
+        submit_button = st.form_submit_button("💬 대화하기")
+        
+        # 팁: Option+Enter 키로 전송
+        st.caption("💡 **팁**: Option+Enter 키를 누르면 메시지가 전송됩니다.")
     
-    # 팁: Option+Enter 키로 전송
-    st.caption("💡 **팁**: Option+Enter 키를 누르면 메시지가 전송됩니다.")
+    if submit_button and user_input.strip():
+        submit_message(user_input)
     
     # 초기 분석 시작 버튼
     if not st.session_state.messages:
