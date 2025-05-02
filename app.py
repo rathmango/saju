@@ -14,6 +14,7 @@ import platform
 import re
 import html  # HTML 이스케이프 라이브러리 추가
 import uuid  # 고유 ID 생성 라이브러리 추가
+from supabase import create_client  # Supabase 클라이언트 추가
 
 # 입력 필드 초기화 상태 추가
 if 'input_text' not in st.session_state:
@@ -24,6 +25,74 @@ load_dotenv()
 
 # OpenAI API 키 가져오기
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+
+# Supabase 설정
+def setup_supabase():
+    """Supabase 클라이언트를 설정합니다."""
+    try:
+        # Streamlit Cloud에서는 st.secrets 사용
+        supabase_url = st.secrets.get("SUPABASE_URL", None)
+        supabase_key = st.secrets.get("SUPABASE_KEY", None)
+        
+        # 로컬 개발 환경에서는 환경 변수 사용 가능
+        if not supabase_url or not supabase_key:
+            supabase_url = os.environ.get("SUPABASE_URL")
+            supabase_key = os.environ.get("SUPABASE_KEY")
+        
+        if not supabase_url or not supabase_key:
+            # 설정이 없으면 None 반환, 로깅 비활성화
+            return None
+            
+        return create_client(supabase_url, supabase_key)
+    except Exception as e:
+        print(f"Supabase 설정 오류: {str(e)}")
+        return None
+
+# 세션 ID 설정
+if 'session_id' not in st.session_state:
+    st.session_state.session_id = str(uuid.uuid4())
+
+# 대화 로깅 함수
+def log_conversation(user_input, assistant_response):
+    """사용자와 어시스턴트의 대화를 Supabase에 로깅합니다."""
+    try:
+        supabase = setup_supabase()
+        if not supabase:
+            return  # Supabase 연결 실패 시 조용히 반환
+        
+        # 사용자 정보 추출 (사주 데이터가 있는 경우)
+        user_info = {}
+        if 'saju_data' in st.session_state and st.session_state.saju_data:
+            original_info = st.session_state.saju_data.get("원본정보", {})
+            if isinstance(original_info, dict):
+                user_info = {
+                    "year": original_info.get("year", ""),
+                    "month": original_info.get("month", ""),
+                    "day": original_info.get("day", ""),
+                    "hour": original_info.get("hour", ""),
+                    "gender": original_info.get("gender", ""),
+                    "is_lunar": original_info.get("is_lunar", False)
+                }
+        
+        # 메타데이터 추가
+        metadata = {
+            "app_version": "1.0.0",
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        # Supabase에 데이터 삽입
+        result = supabase.table("saju_conversations").insert({
+            "session_id": st.session_state.session_id,
+            "user_input": user_input,
+            "assistant_response": assistant_response,
+            "user_info": user_info,
+            "metadata": metadata
+        }).execute()
+        
+        return result
+    except Exception as e:
+        print(f"로깅 오류: {str(e)}")
+        return None
 
 # API 키 없을 경우 안내 메시지 표시 함수
 def check_api_key():
@@ -920,6 +989,9 @@ else:
                 st.session_state.message_id_counter += 1
                 assistant_msg_id = f"msg_{st.session_state.message_id_counter}"
                 st.session_state.messages.append({"role": "assistant", "content": full_response, "id": assistant_msg_id})
+                
+                # Supabase에 대화 로깅
+                log_conversation(user_input, full_response)
             
             # 재실행하여 UI 업데이트
             st.rerun()
@@ -1163,6 +1235,9 @@ if not st.session_state.messages:
                         st.session_state.message_id_counter += 1
                         assistant_msg_id = f"msg_{st.session_state.message_id_counter}"
                         st.session_state.messages.append({"role": "assistant", "content": full_response, "id": assistant_msg_id})
+                        
+                        # Supabase에 대화 로깅
+                        log_conversation("사주 분석을 시작해주세요.", full_response)
                 
                 # 플래그 초기화
                 st.session_state.start_analysis_clicked = False
