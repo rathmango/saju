@@ -79,8 +79,14 @@ def analyze_saju_with_llm(prompt, messages=None, stream=True):
         if not OPENAI_API_KEY:
             return "API 키가 설정되지 않았습니다. .env 파일에 OPENAI_API_KEY를 설정해주세요."
         
-        # API 키로 클라이언트 초기화
-        client = OpenAI(api_key=OPENAI_API_KEY)
+        # API 키를 환경 변수로 설정
+        os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
+        
+        # 기본 클라이언트 생성 (프록시 없이)
+        try:
+            client = OpenAI()  # 환경 변수에서 API 키를 자동으로 가져옴
+        except Exception as e:
+            return f"OpenAI 클라이언트 초기화 오류: {str(e)}"
         
         conversation = []
         
@@ -99,25 +105,28 @@ def analyze_saju_with_llm(prompt, messages=None, stream=True):
         conversation.append({"role": "user", "content": prompt})
         
         # OpenAI API 호출
-        if stream:
-            response = client.chat.completions.create(
-                model="gpt-4.1",
-                messages=conversation,
-                temperature=0.7,
-                max_tokens=32768,
-                stream=True
-            )
-        else:
-            response = client.chat.completions.create(
-                model="gpt-4.1",
-                messages=conversation,
-                temperature=0.7,
-                max_tokens=32768,
-                stream=False
-            )
-            return response.choices[0].message.content
-        
-        return response
+        try:
+            if stream:
+                response = client.chat.completions.create(
+                    model="gpt-4.1",
+                    messages=conversation,
+                    temperature=0.7,
+                    max_tokens=32768,
+                    stream=True
+                )
+            else:
+                response = client.chat.completions.create(
+                    model="gpt-4.1",
+                    messages=conversation,
+                    temperature=0.7,
+                    max_tokens=32768,
+                    stream=False
+                )
+                return response.choices[0].message.content
+            
+            return response
+        except Exception as e:
+            return f"OpenAI API 호출 오류: {str(e)}"
     
     except Exception as e:
         return f"분석 중 오류가 발생했습니다: {str(e)}"
