@@ -15,6 +15,10 @@ import re
 import html  # HTML 이스케이프 라이브러리 추가
 import uuid  # 고유 ID 생성 라이브러리 추가
 
+# 입력 필드 초기화 상태 추가
+if 'input_text' not in st.session_state:
+    st.session_state.input_text = ""
+
 # .env 파일 로드
 load_dotenv()
 
@@ -959,13 +963,13 @@ else:
             st.session_state.reset_chat_clicked = False
         if 'reset_in_progress' not in st.session_state:
             st.session_state.reset_in_progress = False
-        
+            
         # 초기화 콜백 함수
         def handle_reset_chat():
             if not st.session_state.reset_in_progress:
                 st.session_state.reset_chat_clicked = True
                 st.session_state.reset_in_progress = True
-        
+            
         st.button("🔄 대화 초기화", on_click=handle_reset_chat, key="reset_chat_button")
         
         # 버튼 클릭 처리
@@ -974,6 +978,7 @@ else:
             st.session_state.messages = []
             st.session_state.message_id_counter = 0
             st.session_state.last_input = ""
+            st.session_state.input_text = ""
             st.session_state.reset_chat_clicked = False
             st.session_state.reset_in_progress = False
             st.rerun()
@@ -1021,52 +1026,61 @@ else:
                 # 오류 발생 시 간단히 표시하고 계속 진행
                 st.error(f"메시지 표시 오류: {str(e)[:100]}")
                 continue
-
+    
     # 입력 영역 (하단에 고정)
     st.markdown("### 질문하기")
-
+    
     # 입력 필드와 버튼 분리
     col1, col2 = st.columns([5, 1])
-
+    
     # 콜백 함수 - 입력 처리를 위한 상태 변수 초기화
     if 'submit_clicked' not in st.session_state:
         st.session_state.submit_clicked = False
     if 'last_input' not in st.session_state:
         st.session_state.last_input = ""
-
-    # 버튼 콜백 함수
+    
+    # 입력값 변경 감지 콜백 함수
+    def process_input():
+        # 입력값이 변경되면 세션 상태에 저장
+        if "temp_input" in st.session_state:
+            st.session_state.input_text = st.session_state.temp_input
+    
+    # 버튼 콜백 함수 
     def handle_submit():
         # 입력값이 있고 이전 입력과 다른 경우에만 처리
-        current_input = st.session_state.get("temp_input", "").strip()
+        current_input = st.session_state.input_text.strip()
         if current_input and current_input != st.session_state.last_input:
             st.session_state.submit_clicked = True
             st.session_state.last_input = current_input
-
+            # 입력값 초기화를 위한 값 설정
+            st.session_state.input_text = ""
+    
     # 입력 필드 (세션 상태를 통해 관리)
     with col1:
-        temp_input = st.text_area(
+        st.text_area(
             "사주에 대해 궁금한 점을 입력하세요:",
             key="temp_input",
+            value=st.session_state.input_text,
+            on_change=process_input,
             height=100,
             placeholder="예: '제 성격은 어떤가요?', '건강운은 어떤가요?', '적합한 직업은 무엇인가요?'",
             label_visibility="collapsed"
         )
-
+    
     # 제출 버튼
     with col2:
         st.button("💬 대화하기", on_click=handle_submit, key="submit_chat_button")
-
+    
     # 팁
     st.caption("💡 **팁**: 메시지를 입력한 후 대화하기 버튼을 클릭하세요.")
-
+    
     # 버튼이 클릭되었고 입력값이 있는 경우 처리
     if st.session_state.submit_clicked:
-        current_input = st.session_state.get("temp_input", "").strip()
+        # 마지막 저장된 입력값 사용
+        current_input = st.session_state.last_input.strip()
         if current_input:
             # 메시지 제출
             submit_message(current_input)
-            # 입력 필드 초기화
-            st.session_state.temp_input = ""
         # 제출 플래그 초기화
         st.session_state.submit_clicked = False
 
