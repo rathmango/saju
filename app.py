@@ -1,7 +1,7 @@
 import streamlit as st
 import requests
 import xml.etree.ElementTree as ET
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 import pandas as pd
 import os
 import matplotlib.pyplot as plt
@@ -16,9 +16,234 @@ import html  # HTML 이스케이프 라이브러리 추가
 import uuid  # 고유 ID 생성 라이브러리 추가
 from supabase import create_client  # Supabase 클라이언트 추가
 
+# 지역별 시차 데이터 (동경 127.5도 기준, 분:초 형식)
+REGION_TIME_OFFSET = {
+    # 서울/경기
+    "서울특별시": 2.05,    # 2분 5초
+    "인천광역시": 5.22,
+    "경기도 수원시": 2.54,
+    "경기도 성남시": 2.10,
+    "경기도 고양시": 3.10,
+    "경기도 용인시": 1.45,
+    "경기도 부천시": 4.10,
+    "경기도 안산시": 3.50,
+    "경기도 남양주시": 1.20,
+    "경기도 안양시": 3.15,
+    "경기도 화성시": 3.28,
+    "경기도 평택시": 3.25,
+    "경기도 의정부시": 1.50,
+    "경기도 시흥시": 4.05,
+    "경기도 파주시": 3.40,
+    "경기도 김포시": 4.28,
+    "경기도 광명시": 3.45,
+    "경기도 광주시": 1.15,
+    "경기도 군포시": 3.30,
+    "경기도 이천시": 0.25,
+    "경기도 오산시": 2.58,
+    "경기도 하남시": 1.45,
+    "경기도 양주시": 1.35,
+    "경기도 구리시": 1.30,
+    "경기도 안성시": 2.38,
+    "경기도 포천시": 0.55,
+    "경기도 의왕시": 3.05,
+    "경기도 여주시": 0.10,
+    "경기도 양평군": -0.20,
+    "경기도 동두천시": 1.45,
+    "경기도 과천시": 2.50,
+    "경기도 가평군": -0.05,
+    "경기도 연천군": 2.25,
+    
+    # 강원도
+    "강원특별자치도 춘천시": -1.48,
+    "강원특별자치도 원주시": -0.55,
+    "강원특별자치도 강릉시": -5.25,
+    "강원특별자치도 동해시": -5.58,
+    "강원특별자치도 태백시": -4.40,
+    "강원특별자치도 속초시": -4.20,
+    "강원특별자치도 삼척시": -5.45,
+    "강원특별자치도 홍천군": -2.20,
+    "강원특별자치도 횡성군": -1.30,
+    "강원특별자치도 영월군": -3.10,
+    "강원특별자치도 평창군": -3.30,
+    "강원특별자치도 정선군": -4.15,
+    "강원특별자치도 철원군": 0.20,
+    "강원특별자치도 화천군": -1.10,
+    "강원특별자치도 양구군": -2.25,
+    "강원특별자치도 인제군": -3.05,
+    "강원특별자치도 고성군": -4.35,
+    "강원특별자치도 양양군": -4.55,
+    
+    # 충청북도
+    "충청북도 청주시": 0.45,
+    "충청북도 충주시": -0.15,
+    "충청북도 제천시": -1.25,
+    "충청북도 보은군": 0.30,
+    "충청북도 옥천군": 0.05,
+    "충청북도 영동군": -0.40,
+    "충청북도 증평군": 0.25,
+    "충청북도 진천군": 1.10,
+    "충청북도 괴산군": -0.30,
+    "충청북도 음성군": 0.20,
+    "충청북도 단양군": -2.10,
+    
+    # 충청남도
+    "충청남도 천안시": 2.15,
+    "충청남도 공주시": 2.55,
+    "충청남도 보령시": 4.40,
+    "충청남도 아산시": 2.45,
+    "충청남도 서산시": 5.25,
+    "충청남도 논산시": 2.35,
+    "충청남도 계룡시": 2.30,
+    "충청남도 당진시": 4.05,
+    "충청남도 금산군": 1.45,
+    "충청남도 부여군": 3.35,
+    "충청남도 서천군": 4.20,
+    "충청남도 청양군": 3.25,
+    "충청남도 홍성군": 4.15,
+    "충청남도 예산군": 3.50,
+    "충청남도 태안군": 5.45,
+    
+    # 전라북도
+    "전라북도 전주시": 4.12,
+    "전라북도 군산시": 5.40,
+    "전라북도 익산시": 4.55,
+    "전라북도 정읍시": 5.20,
+    "전라북도 남원시": 3.15,
+    "전라북도 김제시": 5.05,
+    "전라북도 완주군": 4.05,
+    "전라북도 진안군": 3.25,
+    "전라북도 무주군": 2.35,
+    "전라북도 장수군": 2.55,
+    "전라북도 임실군": 3.50,
+    "전라북도 순창군": 4.05,
+    "전라북도 고창군": 6.10,
+    "전라북도 부안군": 5.45,
+    
+    # 전라남도
+    "전라남도 목포시": 7.25,
+    "전라남도 여수시": 4.15,
+    "전라남도 순천시": 3.50,
+    "전라남도 나주시": 6.15,
+    "전라남도 광양시": 3.25,
+    "전라남도 담양군": 5.10,
+    "전라남도 곡성군": 4.35,
+    "전라남도 구례군": 3.20,
+    "전라남도 고흥군": 4.50,
+    "전라남도 보성군": 5.05,
+    "전라남도 화순군": 5.25,
+    "전라남도 장흥군": 5.55,
+    "전라남도 강진군": 6.25,
+    "전라남도 해남군": 7.15,
+    "전라남도 영암군": 6.35,
+    "전라남도 무안군": 7.05,
+    "전라남도 함평군": 6.45,
+    "전라남도 영광군": 6.30,
+    "전라남도 장성군": 5.45,
+    "전라남도 완도군": 6.15,
+    "전라남도 진도군": 7.45,
+    "전라남도 신안군": 7.50,
+    
+    # 경상북도
+    "경상북도 포항시": -5.10,
+    "경상북도 경주시": -4.25,
+    "경상북도 김천시": -0.50,
+    "경상북도 안동시": -2.35,
+    "경상북도 구미시": -1.45,
+    "경상북도 영주시": -2.15,
+    "경상북도 영천시": -3.45,
+    "경상북도 상주시": -1.25,
+    "경상북도 문경시": -1.10,
+    "경상북도 경산시": -3.30,
+    "경상북도 군위군": -2.55,
+    "경상북도 의성군": -2.40,
+    "경상북도 청송군": -3.55,
+    "경상북도 영양군": -3.40,
+    "경상북도 영덕군": -5.25,
+    "경상북도 청도군": -3.15,
+    "경상북도 고령군": -2.05,
+    "경상북도 성주군": -1.55,
+    "경상북도 칠곡군": -2.20,
+    "경상북도 예천군": -1.50,
+    "경상북도 봉화군": -2.45,
+    "경상북도 울진군": -5.45,
+    "경상북도 울릉군": -8.20,
+
+    # 경상남도
+    "경상남도 창원시": -2.05,
+    "경상남도 진주시": -0.55,
+    "경상남도 통영시": -1.50,
+    "경상남도 사천시": -0.40,
+    "경상남도 김해시": -2.35,
+    "경상남도 밀양시": -2.50,
+    "경상남도 거제시": -2.20,
+    "경상남도 양산시": -3.05,
+    "경상남도 의령군": -1.25,
+    "경상남도 함안군": -1.40,
+    "경상남도 창녕군": -2.15,
+    "경상남도 고성군": -1.20,
+    "경상남도 남해군": -0.30,
+    "경상남도 하동군": -0.15,
+    "경상남도 산청군": -0.05,
+    "경상남도 함양군": 0.10,
+    "경상남도 거창군": 0.25,
+    "경상남도 합천군": -1.05,
+    
+    # 제주도
+    "제주특별자치도 제주시": 8.35,
+    "제주특별자치도 서귀포시": 8.25,
+    
+    # 광역시
+    "부산광역시": -2.15,
+    "대구광역시": -3.10,
+    "광주광역시": 5.45,
+    "대전광역시": 1.45,
+    "울산광역시": -4.05,
+    "세종특별자치시": 2.05,
+}
+
 # 입력 필드 초기화 상태 추가
 if 'input_text' not in st.session_state:
     st.session_state.input_text = ""
+
+# 지역 시차 보정 함수
+def adjust_birth_time_by_region(year, month, day, hour, minute, region):
+    """지역별 시차를 고려하여 생시를 보정합니다 (동경 127.5도 기준)"""
+    if region not in REGION_TIME_OFFSET:
+        return hour, minute, day, month, year  # 지원되지 않는 지역은 보정하지 않음
+    
+    # 지역 오프셋 구하기 (분과 초)
+    offset = REGION_TIME_OFFSET[region]
+    offset_minutes = int(offset)
+    offset_seconds = int((offset - offset_minutes) * 60)
+    
+    # datetime 객체 생성
+    birth_datetime = datetime(year, month, day, hour, minute)
+    
+    # 오프셋 적용 (양수면 더하고, 음수면 빼기)
+    adjusted_datetime = birth_datetime + timedelta(minutes=offset_minutes, seconds=offset_seconds)
+    
+    # 결과 반환
+    return (adjusted_datetime.hour, 
+            adjusted_datetime.minute, 
+            adjusted_datetime.day, 
+            adjusted_datetime.month, 
+            adjusted_datetime.year)
+
+# 보정 결과 표시용 함수
+def format_time_adjustment(original_time, adjusted_time):
+    """시간 보정 결과를 사용자 친화적으로 표시합니다"""
+    orig_year, orig_month, orig_day, orig_hour, orig_minute = original_time
+    adj_year, adj_month, adj_day, adj_hour, adj_minute = adjusted_time
+    
+    # 날짜/시간 형식으로 표시
+    orig_str = f"{orig_year}년 {orig_month}월 {orig_day}일 {orig_hour:02d}시 {orig_minute:02d}분"
+    adj_str = f"{adj_year}년 {adj_month}월 {adj_day}일 {adj_hour:02d}시 {adj_minute:02d}분"
+    
+    # 변경 여부 확인
+    if orig_str == adj_str:
+        return f"입력하신 시간: {orig_str}\n보정 필요 없음"
+    else:
+        return f"입력하신 시간: {orig_str}\n만세력 기준 보정된 시간: {adj_str} (동경 127.5도 기준)"
 
 # .env 파일 로드
 load_dotenv()
@@ -716,11 +941,66 @@ with st.form("birth_info_form"):
                 lunar_leap_month = "1"
         
         # 시간 입력
-        birth_hour = st.selectbox(
-            "태어난 시(時)",
-            list(range(24)),
-            format_func=lambda x: f"{x:02d}:00 ~ {x:02d}:59"
+        time_col1, time_col2 = st.columns(2)
+        with time_col1:
+            birth_hour = st.selectbox(
+                "태어난 시(時)",
+                list(range(24)),
+                format_func=lambda x: f"{x:02d}시"
+            )
+        with time_col2:
+            birth_minute = st.selectbox(
+                "태어난 분(分)",
+                list(range(0, 60, 1)),
+                format_func=lambda x: f"{x:02d}분"
+            )
+        
+        # 지역 선택
+        region_category = st.selectbox(
+            "태어난 지역(광역)",
+            [
+                "서울/경기/인천",
+                "강원도",
+                "충청북도",
+                "충청남도/세종",
+                "전라북도",
+                "전라남도",
+                "경상북도",
+                "경상남도/부산/울산",
+                "제주도",
+                "광역시"
+            ]
         )
+        
+        # 선택한 카테고리에 따라 세부 지역 옵션 필터링
+        filtered_regions = []
+        if region_category == "서울/경기/인천":
+            filtered_regions = [region for region in REGION_TIME_OFFSET.keys() 
+                              if region.startswith("서울") or region.startswith("경기도") or region.startswith("인천")]
+        elif region_category == "강원도":
+            filtered_regions = [region for region in REGION_TIME_OFFSET.keys() if region.startswith("강원")]
+        elif region_category == "충청북도":
+            filtered_regions = [region for region in REGION_TIME_OFFSET.keys() if region.startswith("충청북도")]
+        elif region_category == "충청남도/세종":
+            filtered_regions = [region for region in REGION_TIME_OFFSET.keys() 
+                              if region.startswith("충청남도") or region.startswith("세종")]
+        elif region_category == "전라북도":
+            filtered_regions = [region for region in REGION_TIME_OFFSET.keys() if region.startswith("전라북도")]
+        elif region_category == "전라남도":
+            filtered_regions = [region for region in REGION_TIME_OFFSET.keys() if region.startswith("전라남도")]
+        elif region_category == "경상북도":
+            filtered_regions = [region for region in REGION_TIME_OFFSET.keys() if region.startswith("경상북도")]
+        elif region_category == "경상남도/부산/울산":
+            filtered_regions = [region for region in REGION_TIME_OFFSET.keys() 
+                              if region.startswith("경상남도") or region.startswith("부산") or region.startswith("울산")]
+        elif region_category == "제주도":
+            filtered_regions = [region for region in REGION_TIME_OFFSET.keys() if region.startswith("제주")]
+        elif region_category == "광역시":
+            filtered_regions = [region for region in REGION_TIME_OFFSET.keys() 
+                              if region.endswith("광역시") and not (region.startswith("부산") or region.startswith("울산"))]
+            filtered_regions.append("세종특별자치시")
+        
+        birth_region = st.selectbox("태어난 지역(시/군)", filtered_regions)
         
         # 성별 입력
         gender = st.radio("성별", ["남", "여"])
@@ -741,167 +1021,119 @@ with st.form("birth_info_form"):
         - 술시(戌時): 19:00 ~ 21:00 (개)
         - 해시(亥時): 21:00 ~ 23:00 (돼지)
         """)
+        
+        st.markdown("### 지역별 시차 보정")
+        st.info("""
+        각 지역별 시차는 동경 127.5도를 기준으로 보정됩니다.
+        이는 만세력 등의 전통 역법에서 사용하는 표준 경도로,
+        현재 시차와는 다를 수 있습니다.
+        
+        지역에 따라 실제 출생 시간이 사주 계산에 사용되는 
+        시간과 차이가 있을 수 있습니다.
+        """)
     
     submit_button = st.form_submit_button("사주 계산하기")
 
 # 사주 계산 처리
 if submit_button:
-    year = birth_date.year
-    month = birth_date.month
-    day = birth_date.day
-    
-    with st.spinner("계산 중..."):
-        if is_lunar:
-            # 음력 -> 양력 변환
-            solar_info = get_solar_date(year, month, day, lunar_leap_month)
-            if solar_info.get('error', True):
-                st.error(f"음력 변환 중 오류가 발생했습니다: {solar_info.get('message', '알 수 없는 오류')}")
-            else:
-                solar_year = int(solar_info['solYear'])
-                solar_month = int(solar_info['solMonth'])
-                solar_day = int(solar_info['solDay'])
-                
-                st.success(f"음력 {year}년 {month}월 {day}일은 양력으로 {solar_year}년 {solar_month}월 {solar_day}일입니다.")
-                
-                # 사주 계산 (변환된 양력 기준)
-                saju = calculate_saju(solar_year, solar_month, solar_day, birth_hour, gender, False)
-                
-                # 세션 상태에 사주 데이터 저장
-                st.session_state.saju_data = saju
-        else:
-            # 양력 -> 음력 변환 (정보 표시용)
-            lunar_info = get_lunar_date(year, month, day)
-            if not lunar_info.get('error', True):
-                st.success(f"양력 {year}년 {month}월 {day}일은 음력으로 {lunar_info['lunYear']}년 {lunar_info['lunMonth']}월 {lunar_info['lunDay']}일 ({lunar_info['lunLeapmonth']}달)입니다.")
-            
-            # 사주 계산
-            saju = calculate_saju(year, month, day, birth_hour, gender, False)
-            
-            # 세션 상태에 사주 데이터 저장
-            st.session_state.saju_data = saju
+    try:
+        # 입력된 날짜 가져오기
+        year = birth_date.year
+        month = birth_date.month
+        day = birth_date.day
+        minute = birth_minute  # 분 값 추가
+        region = birth_region  # 지역 값 추가
+        
+        # 원본 시간 저장
+        original_time = (year, month, day, birth_hour, minute)
+        
+        # 지역에 따른 시간 보정 적용
+        adjusted_hour, adjusted_minute, adjusted_day, adjusted_month, adjusted_year = adjust_birth_time_by_region(
+            year, month, day, birth_hour, minute, region
+        )
+        
+        # 보정된 시간 정보
+        adjusted_time = (adjusted_year, adjusted_month, adjusted_day, adjusted_hour, adjusted_minute)
+        
+        # 보정 결과 안내 메시지
+        adjustment_message = format_time_adjustment(original_time, adjusted_time)
+        
+        # 보정된 시간으로 사주 계산
+        saju_data = calculate_saju(
+            adjusted_year, adjusted_month, adjusted_day, adjusted_hour, gender, is_lunar
+        )
+        
+        # 원본 시간과 보정된 시간 정보 추가
+        saju_data["원본시간"] = {"year": year, "month": month, "day": day, "hour": birth_hour, "minute": minute}
+        saju_data["보정시간"] = {"year": adjusted_year, "month": adjusted_month, "day": adjusted_day, "hour": adjusted_hour, "minute": adjusted_minute}
+        saju_data["지역"] = region
+        
+        # 사주 데이터 세션 상태에 저장
+        st.session_state.saju_data = saju_data
         
         # 결과 표시
-        if st.session_state.saju_data:
-            st.markdown("## 📊 사주 결과")
-            
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.markdown("### 📋 기본 정보")
-                
-                # 기본 정보 테이블
-                basic_info = {
-                    "항목": ["생년월일", "시간", "성별", "일간(日干)"],
-                    "값": [
-                        f"{year}년 {month}월 {day}일 ({calendar_type})",
-                        f"{birth_hour}시 ({birth_hour//2}{'짝' if birth_hour%2==0 else '홀'})",
-                        gender,
-                        f"{saju['일간']} ({get_five_elements(saju['일간'])})"
-                    ]
-                }
-                st.table(pd.DataFrame(basic_info))
-                
-                # 사주 팔자 표시
-                st.markdown("### 🔮 사주 팔자")
-                saju_data = {
-                    "구분": ["천간(天干)", "지지(地支)"],
-                    "연주(年柱)": [saju["연주"][0], saju["연주"][1]],
-                    "월주(月柱)": [saju["월주"][0], saju["월주"][1]],
-                    "일주(日柱)": [saju["일주"][0], saju["일주"][1]],
-                    "시주(時柱)": [saju["시주"][0], saju["시주"][1]]
-                }
-                st.table(pd.DataFrame(saju_data))
-                
-                # 십이운성 표시
-                st.markdown("### 🌟 십이운성")
-                twelve_forces = {
-                    "구분": ["십이운성"],
-                    "연주(年柱)": [saju["십이운성"]["연주"]],
-                    "월주(月柱)": [saju["십이운성"]["월주"]],
-                    "일주(日柱)": [saju["십이운성"]["일주"]],
-                    "시주(時柱)": [saju["십이운성"]["시주"]]
-                }
-                st.table(pd.DataFrame(twelve_forces))
-                
-            with col2:
-                # 오행 개수 표시
-                st.markdown("### 🔥 오행 분석")
-                elements = saju["오행개수"]
-                
-                # 오행 이름 매핑 제거 (한글만 사용)
-                # 데이터 준비
-                elements_data = {
-                    "오행": list(elements.keys()),
-                    "개수": list(elements.values())
-                }
-                
-                # Streamlit의 내장 차트 사용
-                df = pd.DataFrame({
-                    '오행 개수': elements.values(),
-                }, index=elements.keys())
-                
-                # 사용자 정의 색상 맵
-                color_map = {
-                    '목': '#228B22',  # 진한 녹색
-                    '화': '#FF4500',  # 붉은색 
-                    '토': '#8B4513',  # 갈색
-                    '금': '#DAA520',  # 황금색
-                    '수': '#1E90FF'   # 파란색
-                }
-                
-                # 정적 이미지로 차트 생성하여 표시
-                st.bar_chart(df)
-                
-                # 색상 범례 표시
-                st.markdown("**오행 색상:**")
-                cols = st.columns(5)
-                for i, (element, color) in enumerate(color_map.items()):
-                    cols[i].markdown(f"<div style='background-color:{color}; padding:10px; color:white; text-align:center; border-radius:5px'>{element}</div>", unsafe_allow_html=True)
-
-                # 원래 표 형태로도 표시
-                st.markdown("#### 오행 분포 상세")
-                st.dataframe(df)
-                
-                # 천간 오행
-                stems_elements = {
-                    "천간": [saju["연주"][0], saju["월주"][0], saju["일주"][0], saju["시주"][0]],
-                    "오행": [
-                        get_five_elements(saju["연주"][0]),
-                        get_five_elements(saju["월주"][0]),
-                        get_five_elements(saju["일주"][0]),
-                        get_five_elements(saju["시주"][0])
-                    ]
-                }
-                st.markdown("#### 천간 오행")
-                st.table(pd.DataFrame(stems_elements))
-                
-                # 지지 오행
-                branches_elements = {
-                    "지지": [saju["연주"][1], saju["월주"][1], saju["일주"][1], saju["시주"][1]],
-                    "오행": [
-                        get_five_elements(saju["연주"][1]),
-                        get_five_elements(saju["월주"][1]),
-                        get_five_elements(saju["일주"][1]),
-                        get_five_elements(saju["시주"][1])
-                    ]
-                }
-                st.markdown("#### 지지 오행")
-                st.table(pd.DataFrame(branches_elements))
-
-            # 대운 표시
-            st.markdown("### 🔄 대운 흐름")
-            if saju["대운"]:
-                fortunes_data = pd.DataFrame(saju["대운"])
-                st.table(fortunes_data)
-            else:
-                st.info("대운 정보가 계산되지 않았습니다.")
-            
-            # 참고 정보
-            st.markdown("### ℹ️ 참고 사항")
-            st.info("""
-            - 이 계산기는 한국 사주명리학의 기본 원리를 바탕으로 계산합니다.
-            - 실제 전문적인 사주 분석을 위해서는 더 많은 요소들이 고려되어야 합니다.
-            """)
+        st.success("사주가 계산되었습니다.")
+        
+        # 시간 보정 결과 표시
+        st.info(adjustment_message)
+        
+        # 사주 정보 테이블 표시
+        st.markdown("### 사주팔자")
+        st.markdown(f"**일간(일주 천간)**: {saju_data['일간']}")
+        
+        # 사주 팔자 표 생성
+        saju_df = pd.DataFrame({
+            "구분": ["천간", "지지", "십이운성"],
+            "연주": [saju_data["연주"][0], saju_data["연주"][1], saju_data["십이운성"]["연주"]],
+            "월주": [saju_data["월주"][0], saju_data["월주"][1], saju_data["십이운성"]["월주"]],
+            "일주": [saju_data["일주"][0], saju_data["일주"][1], saju_data["십이운성"]["일주"]],
+            "시주": [saju_data["시주"][0], saju_data["시주"][1], saju_data["십이운성"]["시주"]],
+        })
+        st.table(saju_df)
+        
+        # 오행 분포 그래프
+        st.markdown("### 오행 분포")
+        
+        # 데이터 준비
+        elements = saju_data["오행개수"]
+        elements_labels = list(elements.keys())
+        elements_values = list(elements.values())
+        
+        # 색상 매핑
+        colors = {"목": "#00CC00", "화": "#FF0000", "토": "#FFCC00", "금": "#FFFF00", "수": "#0000FF"}
+        chart_colors = [colors[element] for element in elements_labels]
+        
+        # Streamlit 내장 차트
+        elements_df = pd.DataFrame({
+            "오행": elements_labels,
+            "개수": elements_values
+        })
+        
+        st.bar_chart(elements_df.set_index("오행"))
+        
+        # 대운 표시
+        st.markdown("### 대운")
+        
+        # 대운 정보를 데이터프레임으로 변환
+        major_fortunes_df = pd.DataFrame(saju_data["대운"])
+        # 나이대 열 추가
+        major_fortunes_df["나이대"] = major_fortunes_df.apply(
+            lambda row: f"{row['시작연령']} ~ {row['시작연령'] + 9}세", axis=1
+        )
+        # 필요한 열만 선택하고 순서 변경
+        major_fortunes_df = major_fortunes_df[["나이대", "간지", "시작년도", "종료년도"]]
+        # 테이블 표시
+        st.table(major_fortunes_df)
+    
+    except Exception as e:
+        st.error(f"사주 계산 중 오류가 발생했습니다: {str(e)}")
+    
+    st.markdown("""
+    **참고 사항**:
+    - 이 계산기는 한국 사주명리학의 기본 원리를 바탕으로 계산합니다.
+    - 지역별 시차는 동경 127.5도를 기준으로 보정됩니다.
+    - 실제 전문적인 사주 분석을 위해서는 더 많은 요소들이 고려되어야 합니다.
+    """)
 
 # 사주 분석 챗봇 영역
 st.markdown("---")
@@ -948,11 +1180,30 @@ else:
                 양력정보 = saju_data["양력정보"]
                 birth_info = f"{양력정보['year']}년 {양력정보['month']}월 {양력정보['day']}일 {양력정보['hour']}시 (양력), 성별: {양력정보['gender']}"
             
+            # 지역 및 시간 보정 정보 추가
+            region_info = ""
+            time_adjustment_info = ""
+            if "지역" in saju_data:
+                region_info = f"출생지역: {saju_data['지역']}"
+                
+                # 보정 시간 정보가 있는 경우
+                if "원본시간" in saju_data and "보정시간" in saju_data:
+                    orig = saju_data["원본시간"]
+                    adj = saju_data["보정시간"]
+                    
+                    # 원본 시간과 보정된 시간이 다른 경우에만 표시
+                    if orig != adj:
+                        orig_str = f"{orig['year']}년 {orig['month']}월 {orig['day']}일 {orig['hour']}시 {orig['minute']}분"
+                        adj_str = f"{adj['year']}년 {adj['month']}월 {adj['day']}일 {adj['hour']}시 {adj['minute']}분"
+                        time_adjustment_info = f"원본 시간: {orig_str}\n보정된 시간: {adj_str} (동경 127.5도 기준)"
+            
             system_context = f"""
             현재 시간: {current_time_str}
             
             당신은 사주명리학의 최고 전문가입니다. 다음 사주 데이터를 기반으로 질문에 최대한 상세히 답변하세요:
             - 생년월일시: {birth_info}
+            - {region_info}
+            {time_adjustment_info}
             - 연주: {saju_data['연주']}
             - 월주: {saju_data['월주']}
             - 일주: {saju_data['일주']}
@@ -1196,11 +1447,30 @@ if not st.session_state.messages:
                     양력정보 = saju_data["양력정보"]
                     birth_info = f"{양력정보['year']}년 {양력정보['month']}월 {양력정보['day']}일 {양력정보['hour']}시 (양력), 성별: {양력정보['gender']}"
                 
+                # 지역 및 시간 보정 정보 추가
+                region_info = ""
+                time_adjustment_info = ""
+                if "지역" in saju_data:
+                    region_info = f"출생지역: {saju_data['지역']}"
+                    
+                    # 보정 시간 정보가 있는 경우
+                    if "원본시간" in saju_data and "보정시간" in saju_data:
+                        orig = saju_data["원본시간"]
+                        adj = saju_data["보정시간"]
+                        
+                        # 원본 시간과 보정된 시간이 다른 경우에만 표시
+                        if orig != adj:
+                            orig_str = f"{orig['year']}년 {orig['month']}월 {orig['day']}일 {orig['hour']}시 {orig['minute']}분"
+                            adj_str = f"{adj['year']}년 {adj['month']}월 {adj['day']}일 {adj['hour']}시 {adj['minute']}분"
+                            time_adjustment_info = f"원본 시간: {orig_str}\n보정된 시간: {adj_str} (동경 127.5도 기준)"
+                
                 initial_prompt = f"""
                 현재 시간: {current_time_str}
                 
                 다음은 사주 데이터입니다:
                 - 생년월일시: {birth_info}
+                - {region_info}
+                {time_adjustment_info}
                 - 연주: {saju_data['연주']}
                 - 월주: {saju_data['월주']}
                 - 일주: {saju_data['일주']}
