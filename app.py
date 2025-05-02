@@ -247,9 +247,9 @@ def analyze_saju_with_llm(prompt, messages=None, stream=True):
             }
             
             payload = {
-                "model": "gpt-4.1",
+                "model": "gpt-4.1-mini",
                 "messages": conversation,
-                "temperature": 0.7,
+                "temperature": 0.5,
                 "max_tokens": 32768,
                 "stream": stream
             }
