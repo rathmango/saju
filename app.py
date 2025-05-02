@@ -400,7 +400,7 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
     menu_items={
-        'About': "# 로컬 만세력 사주풀이\n### 만세력 기반의 정확한 사주 계산 및 풀이\n전통 만세력을 기반으로 정확한 시간 보정을 통해 사주를 계산하고, GPT 기반의 AI가 사주를 실시간으로 분석해드립니다."
+        'About': "# 로컬 만세력 사주풀이\n### 만세력 기반의 정확한 사주 계산 및 풀이\n전통 만세력을 기반으로 정확한 시간 보정을 통해 사주를 계산하고, AI가 사주를 실시간으로 분석해드립니다."
     }
 )
 
@@ -436,6 +436,66 @@ if 'input_text' not in st.session_state:
     st.session_state.input_text = ""
 if 'clear_input' not in st.session_state:
     st.session_state.clear_input = False
+
+# 스트림릿 UI에 스타일 추가
+st.markdown("""
+<style>
+/* 버튼 스타일 강화 */
+.stButton > button {
+    background-color: #4F46E5;
+    color: white;
+    border-radius: 6px;
+    padding: 0.5rem 1rem;
+    font-weight: 500;
+    border: none;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+    transition: all 0.3s cubic-bezier(.25,.8,.25,1);
+}
+
+.stButton > button:hover {
+    background-color: #6366F1;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.16), 0 3px 6px rgba(0,0,0,0.23);
+}
+
+/* 버튼 강조 (사주 계산하기, 대화하기 등) */
+.highlight-button {
+    transform: scale(1.05);
+}
+
+/* 다크모드 대응 */
+[data-theme="dark"] .stButton > button {
+    background-color: #6366F1;
+    color: white;
+}
+
+[data-theme="dark"] .stButton > button:hover {
+    background-color: #818CF8;
+}
+
+/* 컬러풀한 강조 효과 */
+.title-gradient {
+    background: linear-gradient(90deg, #3B82F6, #8B5CF6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    display: inline-block;
+    font-weight: bold;
+}
+
+/* 폼 영역 강화 */
+[data-testid="stForm"] {
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    padding: 20px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* 헤더 스타일 강화 */
+h1, h2, h3 {
+    font-weight: 600;
+}
+</style>
+""", unsafe_allow_html=True)
 
 # 스트림 응답 개선 함수 - 상단에 함수 정의!
 def stream_response(response, message_placeholder):
@@ -990,12 +1050,72 @@ with st.sidebar:
     이 앱은 수천 년간 전해져 내려온 동양 전통 사주명리학의 지혜를 현대 AI 기술과 결합하여 보다 정확하고 심층적인 사주 풀이를 제공합니다.
     """)
 
+# 스트림릿 UI에 스타일 추가
+st.markdown("""
+<style>
+/* 버튼 스타일 강화 */
+.stButton > button {
+    background-color: #4F46E5;
+    color: white;
+    border-radius: 6px;
+    padding: 0.5rem 1rem;
+    font-weight: 500;
+    border: none;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+    transition: all 0.3s cubic-bezier(.25,.8,.25,1);
+}
+
+.stButton > button:hover {
+    background-color: #6366F1;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.16), 0 3px 6px rgba(0,0,0,0.23);
+}
+
+/* 버튼 강조 (사주 계산하기, 대화하기 등) */
+.highlight-button {
+    transform: scale(1.05);
+}
+
+/* 다크모드 대응 */
+[data-theme="dark"] .stButton > button {
+    background-color: #6366F1;
+    color: white;
+}
+
+[data-theme="dark"] .stButton > button:hover {
+    background-color: #818CF8;
+}
+
+/* 컬러풀한 강조 효과 */
+.title-gradient {
+    background: linear-gradient(90deg, #3B82F6, #8B5CF6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    display: inline-block;
+    font-weight: bold;
+}
+
+/* 폼 영역 강화 */
+[data-testid="stForm"] {
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    padding: 20px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* 헤더 스타일 강화 */
+h1, h2, h3 {
+    font-weight: 600;
+}
+</style>
+""", unsafe_allow_html=True)
+
 # 탭 구조 제거 - 하나의 흐름으로 구성
 st.title("🔮 로컬 만세력 사주풀이")
 st.markdown("""
 **로컬 만세력 사주풀이**는 한국 전통 만세력을 기반으로 정확한 시간 보정을 통해 사주를 계산하고, 
-GPT 기반의 AI가 사주를 실시간으로 분석해드립니다. 수백 가지 사주 패턴과 법칙을 바탕으로 
-깊이 있는 사주 해석이 가능합니다.
+AI가 사주를 실시간으로 분석해드립니다. 수백 가지 사주 패턴과 법칙을 바탕으로 
+깊이 있는 사주 해석을 제공합니다.
 """)
 
 # 사주 계산 영역
@@ -1090,13 +1210,26 @@ with st.form("birth_info_form"):
         # 성별 입력
         gender = st.radio("성별", ["남", "여"])
         
-        # 제출 버튼을 여기로 이동
-        submit_button = st.form_submit_button("사주 계산하기")
+        # 제출 버튼을 여기로 이동 (강조 클래스 추가)
+        st.markdown('<div class="highlight-button">', unsafe_allow_html=True)
+        submit_button = st.form_submit_button("💫 사주 계산하기")
+        st.markdown('</div>', unsafe_allow_html=True)
         
     with col2:
-        # expander로 변경하여 기본적으로 접혀있게 함
-        with st.expander("📋 태어난 시간대 (펼치기)", expanded=False):
-            st.markdown("""
+        # 만세력 보정 방법으로 변경하고 태어난 시간대 섹션을 통합
+        with st.expander("ℹ️ 만세력 보정 방법", expanded=False):
+            st.info("""
+            각 지역별 시차는 만세력 기준인 동경 135도를 기준으로 보정됩니다.
+            이는 전통 역법에서 사용하는 표준 경도로, 현대 표준시와는 다릅니다.
+            
+            지역에 따라 실제 출생 시간이 사주 계산에 사용되는 
+            시간과 차이가 있을 수 있습니다. 예를 들어 서울에서
+            15시에 출생한 경우, 만세력 기준으로는 약 15시 32분으로
+            보정되어 사주가 계산됩니다.
+            
+            이 시간 보정은 지역의 경도 차이에 따라 결정됩니다(경도 1도당 4분 차이).
+            
+            <전통 십이지지 시간>
             - 자시(子時): 23:00 ~ 01:00 (쥐)
             - 축시(丑時): 01:00 ~ 03:00 (소)
             - 인시(寅時): 03:00 ~ 05:00 (호랑이)
@@ -1109,21 +1242,6 @@ with st.form("birth_info_form"):
             - 유시(酉時): 17:00 ~ 19:00 (닭)
             - 술시(戌時): 19:00 ~ 21:00 (개)
             - 해시(亥時): 21:00 ~ 23:00 (돼지)
-            
-            ※ 위 시간은 전통 십이지지 시간을 현대 24시간제로 표현한 것입니다. 사주 계산에는 만세력 기준으로 보정된 시간이 사용됩니다.
-            """)
-        
-        with st.expander("ℹ️ 지역별 시차 보정 (펼치기)", expanded=False):
-            st.info("""
-            각 지역별 시차는 만세력 기준인 동경 135도를 기준으로 보정됩니다.
-            이는 전통 역법에서 사용하는 표준 경도로, 현대 표준시와는 다릅니다.
-            
-            지역에 따라 실제 출생 시간이 사주 계산에 사용되는 
-            시간과 차이가 있을 수 있습니다. 예를 들어 서울에서
-            15시에 출생한 경우, 만세력 기준으로는 약 15시 32분으로
-            보정되어 사주가 계산됩니다.
-            
-            이 시간 보정은 지역의 경도 차이에 따라 결정됩니다(경도 1도당 4분 차이).
             """)
 
 # 사주 계산 처리 (submit_button 위치가 변경되었으므로 나머지 코드는 그대로 유지)
@@ -1293,157 +1411,26 @@ if not OPENAI_API_KEY:
 elif st.session_state.saju_data is None:
     st.info("먼저 위에서 사주를 계산해주세요.")
 else:
-    # 메시지 제출 함수
-    def submit_message(user_input):
-        try:
-            if not user_input.strip():
-                return
+    # 대화 초기화 버튼과 사주 분석 시작 버튼을 일렬로 배치
+    col1, col2 = st.columns([1, 1])
+    with col1:
+        # 초기화 콜백 함수 설정
+        if 'start_analysis_clicked' not in st.session_state:
+            st.session_state.start_analysis_clicked = False
+        if 'analysis_in_progress' not in st.session_state:
+            st.session_state.analysis_in_progress = False
             
-            # 메시지 중복 방지를 위한 검사
-            # 직전 메시지와 동일한 내용이면 무시
-            if st.session_state.messages and len(st.session_state.messages) > 0:
-                last_messages = [msg for msg in st.session_state.messages if msg.get("role") == "user"]
-                if last_messages and last_messages[-1].get("content") == user_input:
-                    return  # 직전 사용자 메시지와 동일하면 무시
-            
-            # 사용자 메시지 추가 (고유 ID 부여)
-            st.session_state.message_id_counter += 1
-            user_msg_id = f"msg_{st.session_state.message_id_counter}"
-            st.session_state.messages.append({"role": "user", "content": user_input, "id": user_msg_id})
-            
-            # 분석 가이드와 사주 데이터를 포함한 시스템 컨텍스트
-            saju_data = st.session_state.saju_data
-            
-            # 현재 날짜와 시간 정보 가져오기
-            current_time = datetime.now()
-            current_time_str = current_time.strftime("%Y년 %m월 %d일 %H시 %M분")
-            
-            # 생년월일 정보 가져오기
-            birth_info = ""
-            if "원본정보" in saju_data:
-                info = saju_data["원본정보"]
-                date_type = "음력" if info["is_lunar"] else "양력"
-                birth_info = f"{info['year']}년 {info['month']}월 {info['day']}일 {info['hour']}시 ({date_type}), 성별: {info['gender']}"
-            else:
-                # 이전 버전 호환성
-                양력정보 = saju_data["양력정보"]
-                birth_info = f"{양력정보['year']}년 {양력정보['month']}월 {양력정보['day']}일 {양력정보['hour']}시 (양력), 성별: {양력정보['gender']}"
-            
-            # 지역 및 시간 보정 정보 추가
-            region_info = ""
-            time_adjustment_info = ""
-            if "지역" in saju_data:
-                region_info = f"출생지역: {saju_data['지역']}"
-                
-                # 보정 시간 정보가 있는 경우
-                if "원본시간" in saju_data and "보정시간" in saju_data:
-                    orig = saju_data["원본시간"]
-                    adj = saju_data["보정시간"]
-                    
-                    # 원본 시간과 보정된 시간이 다른 경우에만 표시
-                    if orig != adj:
-                        orig_str = f"{orig['year']}년 {orig['month']}월 {orig['day']}일 {orig['hour']}시 {orig['minute']}분"
-                        adj_str = f"{adj['year']}년 {adj['month']}월 {adj['day']}일 {adj['hour']}시 {adj['minute']}분"
-                        time_adjustment_info = f"원본 시간: {orig_str}\n보정된 시간: {adj_str} (동경 127.5도 기준)"
-            
-            system_context = f"""
-            현재 시간: {current_time_str}
-            
-            당신은 사주명리학의 최고 전문가입니다. 다음 사주 데이터를 기반으로 질문에 최대한 상세히 답변하세요:
-            - 생년월일시: {birth_info}
-            - {region_info}
-            {time_adjustment_info}
-            - 연주: {saju_data['연주']}
-            - 월주: {saju_data['월주']}
-            - 일주: {saju_data['일주']}
-            - 시주: {saju_data['시주']}
-            - 일간: {saju_data['일간']}
-            - 오행 분포: {saju_data['오행개수']}
-            - 십이운성: {saju_data['십이운성']}
-            - 대운: {saju_data['대운']}
-            
-            반드시 아래의 '분석 가이드라인' 전체 내용을 참고하여 최대한 상세히 답변하세요:
-            - 분석 가이드라인:
-            {st.session_state.analysis_guide}
-            """
-            
-            # 기존 메시지 중 시스템 메시지 대체
-            context_messages = [{"role": "system", "content": system_context}]
-            # 사용자 메시지 추가 (ID 필드 제외)
-            for msg in st.session_state.messages:
-                if msg["role"] != "system":
-                    context_messages.append({"role": msg["role"], "content": msg["content"]})
-            
-            # 응답 생성
-            with st.spinner("응답 작성 중..."):
-                # 스트리밍 응답을 위한 플레이스홀더
-                temp_placeholder = st.empty()
-                
-                # Stream API 호출 (기존 메시지도 컨텍스트로 포함)
-                response = analyze_saju_with_llm(user_input, context_messages)
-                
-                # 스트리밍 응답 처리
-                full_response = stream_response(response, temp_placeholder)
-                
-                # 대화 기록에 추가 (고유 ID 부여)
-                st.session_state.message_id_counter += 1
-                assistant_msg_id = f"msg_{st.session_state.message_id_counter}"
-                st.session_state.messages.append({"role": "assistant", "content": full_response, "id": assistant_msg_id})
-                
-                # Supabase에 대화 로깅
-                log_conversation(user_input, full_response)
-            
-            # 재실행하여 UI 업데이트
-            st.rerun()
-        except Exception as e:
-            st.error(f"메시지 처리 중 오류가 발생했습니다: {str(e)}")
-
-    # 챗봇 UI 개선
-    st.markdown("""
-    <style>
-    .chat-container {
-        padding: 15px;
-        border-radius: 10px;
-        margin-bottom: 15px;
-        background-color: var(--background-color, white);
-        color: var(--text-color, black);
-        box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
-    }
-    
-    /* 라이트 모드 */
-    [data-theme="light"] .chat-container {
-        background-color: white;
-        color: #333333;
-    }
-    
-    /* 다크 모드 */
-    [data-theme="dark"] .chat-container {
-        background-color: #262730;
-        color: #ffffff;
-        border: 1px solid #555555;
-    }
-    
-    .user-message {
-        border-left: 5px solid #1890ff;
-    }
-    .assistant-message {
-        border-left: 5px solid #7c7c7c;
-    }
-    .chat-msg-content {
-        white-space: pre-wrap;
-        overflow-wrap: break-word;
-        font-size: 16px;
-        line-height: 1.7;
-        margin-top: 8px;
-    }
-    .stTextArea textarea {
-        font-size: 16px;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-    # 대화 초기화 버튼 (상단으로 이동)
-    col1, col2 = st.columns([4, 1])
+        # 분석 시작 콜백 함수
+        def handle_start_analysis():
+            # 이미 진행 중이면 무시
+            if not st.session_state.analysis_in_progress:
+                st.session_state.start_analysis_clicked = True
+                st.session_state.analysis_in_progress = True
+        
+        st.markdown('<div class="highlight-button">', unsafe_allow_html=True)
+        st.button("🔮 사주 분석 시작하기", on_click=handle_start_analysis, key="start_analysis_button_tab2")
+        st.markdown('</div>', unsafe_allow_html=True)
+        
     with col2:
         # 초기화 콜백 함수 설정
         if 'reset_chat_clicked' not in st.session_state:
@@ -1456,7 +1443,7 @@ else:
             if not st.session_state.reset_in_progress:
                 st.session_state.reset_chat_clicked = True
                 st.session_state.reset_in_progress = True
-            
+        
         st.button("🔄 대화 초기화", on_click=handle_reset_chat, key="reset_chat_button")
         
         # 버튼 클릭 처리
@@ -1556,7 +1543,9 @@ else:
     
     # 제출 버튼
     with col2:
+        st.markdown('<div class="highlight-button">', unsafe_allow_html=True)
         st.button("💬 대화하기", on_click=handle_submit, key="submit_chat_button")
+        st.markdown('</div>', unsafe_allow_html=True)
     
     # 팁
     st.caption("💡 **팁**: 메시지를 입력한 후 대화하기 버튼을 클릭하세요.")
@@ -1570,117 +1559,3 @@ else:
             submit_message(current_input)
         # 제출 플래그 초기화
         st.session_state.submit_clicked = False
-
-# 초기 분석 시작 버튼
-if not st.session_state.messages:
-    # 분석 시작 콜백 함수 설정 변수
-    if 'start_analysis_clicked' not in st.session_state:
-        st.session_state.start_analysis_clicked = False
-    if 'analysis_in_progress' not in st.session_state:
-        st.session_state.analysis_in_progress = False
-        
-    # 분석 시작 콜백 함수
-    def handle_start_analysis():
-        # 이미 진행 중이면 무시
-        if not st.session_state.analysis_in_progress:
-            st.session_state.start_analysis_clicked = True
-            st.session_state.analysis_in_progress = True
-        
-    if st.button("🔮 사주 분석 시작하기", on_click=handle_start_analysis, key="start_analysis_button_tab2"):
-        pass  # 콜백으로 처리하므로 여기서는 아무것도 하지 않음
-    
-    # 버튼 클릭 시 실제 처리
-    if st.session_state.start_analysis_clicked and st.session_state.analysis_in_progress:
-        try:
-            with st.spinner("사주를 분석 중입니다..."):
-                # 분석 가이드와 사주 데이터를 포함한 초기 프롬프트 구성
-                saju_data = st.session_state.saju_data
-                
-                # 현재 날짜와 시간 정보 가져오기
-                current_time = datetime.now()
-                current_time_str = current_time.strftime("%Y년 %m월 %d일 %H시 %M분")
-                
-                # 생년월일 정보 가져오기
-                birth_info = ""
-                if "원본정보" in saju_data:
-                    info = saju_data["원본정보"]
-                    date_type = "음력" if info["is_lunar"] else "양력"
-                    birth_info = f"{info['year']}년 {info['month']}월 {info['day']}일 {info['hour']}시 ({date_type}), 성별: {info['gender']}"
-                else:
-                    # 이전 버전 호환성
-                    양력정보 = saju_data["양력정보"]
-                    birth_info = f"{양력정보['year']}년 {양력정보['month']}월 {양력정보['day']}일 {양력정보['hour']}시 (양력), 성별: {양력정보['gender']}"
-                
-                # 지역 및 시간 보정 정보 추가
-                region_info = ""
-                time_adjustment_info = ""
-                if "지역" in saju_data:
-                    region_info = f"출생지역: {saju_data['지역']}"
-                    
-                    # 보정 시간 정보가 있는 경우
-                    if "원본시간" in saju_data and "보정시간" in saju_data:
-                        orig = saju_data["원본시간"]
-                        adj = saju_data["보정시간"]
-                        
-                        # 원본 시간과 보정된 시간이 다른 경우에만 표시
-                        if orig != adj:
-                            orig_str = f"{orig['year']}년 {orig['month']}월 {orig['day']}일 {orig['hour']}시 {orig['minute']}분"
-                            adj_str = f"{adj['year']}년 {adj['month']}월 {adj['day']}일 {adj['hour']}시 {adj['minute']}분"
-                            time_adjustment_info = f"원본 시간: {orig_str}\n보정된 시간: {adj_str} (동경 127.5도 기준)"
-                
-                initial_prompt = f"""
-                현재 시간: {current_time_str}
-                
-                다음은 사주 데이터입니다:
-                - 생년월일시: {birth_info}
-                - {region_info}
-                {time_adjustment_info}
-                - 연주: {saju_data['연주']}
-                - 월주: {saju_data['월주']}
-                - 일주: {saju_data['일주']}
-                - 시주: {saju_data['시주']}
-                - 일간: {saju_data['일간']}
-                - 오행 분포: {saju_data['오행개수']}
-                - 십이운성: {saju_data['십이운성']}
-                - 대운: {saju_data['대운']}
-                
-                다음은 사주 분석 가이드라인입니다:
-                {st.session_state.analysis_guide}
-                
-                위 가이드라인에 따라 이 사주에 대한 간략한 첫 인상과 이 사주의 가장 특징적인 부분을 알려주세요. 
-                그리고 어떤 항목들에 대해 더 자세히 알고 싶은지 물어봐주세요.
-                """
-                
-                # 스트리밍 응답을 위한 플레이스홀더
-                with st.empty():
-                    with st.spinner("사주를 분석 중입니다..."):
-                        # Stream API 호출
-                        response = analyze_saju_with_llm(initial_prompt)
-                        
-                        # 스트리밍 응답 처리를 위한 임시 컨테이너
-                        temp_placeholder = st.empty()
-                        full_response = stream_response(response, temp_placeholder)
-                        
-                        # 대화 기록에 추가
-                        st.session_state.message_id_counter += 1
-                        user_msg_id = f"msg_{st.session_state.message_id_counter}"
-                        st.session_state.messages.append({"role": "user", "content": "사주 분석을 시작해주세요.", "id": user_msg_id})
-                        
-                        st.session_state.message_id_counter += 1
-                        assistant_msg_id = f"msg_{st.session_state.message_id_counter}"
-                        st.session_state.messages.append({"role": "assistant", "content": full_response, "id": assistant_msg_id})
-                        
-                        # Supabase에 대화 로깅
-                        log_conversation("사주 분석을 시작해주세요.", full_response)
-                
-                # 플래그 초기화
-                st.session_state.start_analysis_clicked = False
-                st.session_state.analysis_in_progress = False
-                
-                # 재실행하여 UI 업데이트
-                st.rerun()
-        except Exception as e:
-            st.error(f"사주 분석 시작 중 오류가 발생했습니다: {str(e)}")
-            # 오류 발생 시에도 플래그 초기화
-            st.session_state.start_analysis_clicked = False
-            st.session_state.analysis_in_progress = False 
