@@ -14,6 +14,7 @@ import platform
 import re
 import html  # HTML 이스케이프 라이브러리 추가
 import uuid  # 고유 ID 생성 라이브러리 추가
+import markdown  # 마크다운 처리 라이브러리 추가
 
 # .env 파일 로드
 load_dotenv()
@@ -797,7 +798,7 @@ if not OPENAI_API_KEY:
 elif st.session_state.saju_data is None:
     st.info("먼저 위에서 사주를 계산해주세요.")
 else:
-    # 채팅 UI 개선
+    # 챗봇 UI 개선
     st.markdown("""
     <style>
     .chat-container {
@@ -818,6 +819,21 @@ else:
         overflow-wrap: break-word;
         font-size: 16px;
         line-height: 1.5;
+    }
+    /* 추가된 스타일: 줄간격 조정 */
+    .chat-msg-content p {
+        margin-bottom: 0.5em;
+    }
+    .chat-msg-content ul, .chat-msg-content ol {
+        margin-top: 0.5em;
+        margin-bottom: 0.5em;
+        padding-left: 1.5em;
+    }
+    .chat-msg-content li {
+        margin-bottom: 0.3em;
+    }
+    .chat-msg-content hr {
+        margin: 0.5em 0;
     }
     .stTextArea textarea {
         font-size: 16px;
@@ -842,19 +858,26 @@ else:
         # 메시지 표시
         for msg in st.session_state.messages:
             if msg["role"] == "user":
-                # HTML로 표시 (텍스트 영역 대신)
+                # 사용자 메시지 전처리
+                processed_content = preprocess_markdown(msg["content"])
                 st.markdown(f"""
                 <div class="chat-container user-message" id="msg_{msg['id']}">
                     <strong>👤 나:</strong>
-                    <div class="chat-msg-content">{html.escape(msg["content"])}</div>
+                    <div class="chat-msg-content">{processed_content}</div>
                 </div>
                 """, unsafe_allow_html=True)
             else:
-                # HTML로 표시 (텍스트 영역 대신)
+                # 어시스턴트 메시지 전처리
+                processed_content = preprocess_markdown(msg["content"])
+                # 줄바꿈을 HTML <br> 태그로 변환
+                processed_content = processed_content.replace('\n', '<br>')
+                # 목록 형식은 별도로 처리
+                processed_content = processed_content.replace('<br>• ', '<br><span style="display:inline-block;width:10px;">• </span>')
+                
                 st.markdown(f"""
                 <div class="chat-container assistant-message" id="msg_{msg['id']}">
                     <strong>🔮 사주 분석가:</strong>
-                    <div class="chat-msg-content">{html.escape(msg["content"])}</div>
+                    <div class="chat-msg-content">{processed_content}</div>
                 </div>
                 """, unsafe_allow_html=True)
     
@@ -1030,3 +1053,24 @@ else:
                 
                 # 재실행하여 UI 업데이트
                 st.rerun() 
+
+# 마크다운 전처리 함수
+def preprocess_markdown(text):
+    """마크다운 텍스트를 전처리하여 줄바꿈 등의 문제를 해결합니다."""
+    if not text:
+        return ""
+        
+    # HTML 태그 이스케이프
+    text = html.escape(text)
+    
+    # 줄바꿈 처리 개선
+    text = text.replace('\n\n\n', '\n\n')  # 과도한 줄바꿈 줄이기
+    
+    # 목록 앞 여백 줄이기
+    text = re.sub(r'\n\n- ', '\n- ', text)
+    text = re.sub(r'\n\n\d+\. ', '\n\d+\. ', text)
+    
+    # 특수문자 처리
+    text = text.replace('•', '&#8226;')  # 불릿 포인트 처리
+    
+    return text 
