@@ -496,6 +496,31 @@ st.markdown("""
 h1, h2, h3 {
     font-weight: 600;
 }
+
+/* 텍스트 입력 영역 */
+.stTextArea textarea {
+    border-radius: 18px !important;
+    border: none !important;
+    padding: 10px 15px !important;
+    margin-right: 5px !important;
+    background: white !important;
+    box-shadow: none !important;
+    color: #000000 !important;
+    font-weight: 500 !important;
+}
+
+/* 다크모드 텍스트 입력 영역 */
+[data-theme="dark"] .stTextArea textarea {
+    background: #2b2b2b !important;
+    color: #ffffff !important;
+    font-weight: 500 !important;
+}
+
+/* 입력 창 선택 시 테두리 색상 */
+.stTextArea textarea:focus {
+    border: 2px solid #4CAF50 !important;
+    box-shadow: 0 0 5px rgba(76, 175, 80, 0.5) !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -877,22 +902,6 @@ st.markdown("""
 /* 다크모드 입력창 */
 [data-theme="dark"] .chat-input-container {
     background: #3b3b3b;
-}
-
-/* 텍스트 입력 영역 */
-.stTextArea textarea {
-    border-radius: 18px;
-    border: none;
-    padding: 10px 15px;
-    margin-right: 5px;
-    background: white;
-    box-shadow: none;
-}
-
-/* 다크모드 텍스트 입력 영역 */
-[data-theme="dark"] .stTextArea textarea {
-    background: #2b2b2b;
-    color: #ffffff;
 }
 
 /* 전송 버튼 */
