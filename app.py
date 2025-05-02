@@ -7,7 +7,8 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 from dotenv import load_dotenv
-from openai import OpenAI
+import openai
+import json
 
 # .env 파일 로드
 load_dotenv()
@@ -58,17 +59,27 @@ def stream_response(response, message_placeholder):
         response_area.text(response)
         return response
     
-    # 스트리밍 응답인 경우 (openai v1.x.x 방식)
+    # 스트리밍 응답인 경우 (requests 스트리밍 응답)
     try:
-        for chunk in response:
-            if hasattr(chunk.choices[0], 'delta') and hasattr(chunk.choices[0].delta, 'content'):
-                if chunk.choices[0].delta.content is not None:
-                    content_chunk = chunk.choices[0].delta.content
-                    full_response += content_chunk
-                    # 마크다운 대신 일반 텍스트로 표시 (HTML 해석 방지)
-                    response_area.text(full_response)
+        # requests의 스트림 응답 처리
+        for line in response.iter_lines():
+            if line:
+                line = line.decode('utf-8')
+                # Server-Sent Events 형식에서 데이터 추출
+                if line.startswith('data: ') and not line.startswith('data: [DONE]'):
+                    json_str = line[6:]  # 'data: ' 부분 제거
+                    try:
+                        chunk = json.loads(json_str)
+                        if 'choices' in chunk and len(chunk['choices']) > 0:
+                            if 'delta' in chunk['choices'][0] and 'content' in chunk['choices'][0]['delta']:
+                                content = chunk['choices'][0]['delta']['content']
+                                if content:
+                                    full_response += content
+                                    response_area.text(full_response)
+                    except json.JSONDecodeError:
+                        continue
     except Exception as e:
-        response_area.text(f"응답 처리 중 오류가 발생했습니다: {str(e)}")
+        response_area.text(f"응답 처리 중 오류가 발생했습니다: {str(e)}\n\n원본 응답: {response.text if hasattr(response, 'text') else '응답 내용 없음'}")
     
     return full_response
 
@@ -82,12 +93,7 @@ def analyze_saju_with_llm(prompt, messages=None, stream=True):
         # API 키를 환경 변수로 설정
         os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
         
-        # 기본 클라이언트 생성 (프록시 없이)
-        try:
-            client = OpenAI()  # 환경 변수에서 API 키를 자동으로 가져옴
-        except Exception as e:
-            return f"OpenAI 클라이언트 초기화 오류: {str(e)}"
-        
+        # 직접 HTTP 요청을 통해 OpenAI API 호출
         conversation = []
         
         # 시스템 메시지 설정
@@ -104,29 +110,50 @@ def analyze_saju_with_llm(prompt, messages=None, stream=True):
         # 사용자 메시지 추가
         conversation.append({"role": "user", "content": prompt})
         
-        # OpenAI API 호출
+        # OpenAI API 직접 호출
         try:
-            if stream:
-                response = client.chat.completions.create(
-                    model="gpt-4.1",
-                    messages=conversation,
-                    temperature=0.7,
-                    max_tokens=32768,
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {OPENAI_API_KEY}"
+            }
+            
+            payload = {
+                "model": "gpt-4.1",
+                "messages": conversation,
+                "temperature": 0.7,
+                "max_tokens": 32768,
+                "stream": stream
+            }
+            
+            if not stream:
+                # 스트리밍 없는 요청
+                response = requests.post(
+                    "https://api.openai.com/v1/chat/completions",
+                    headers=headers,
+                    json=payload
+                )
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    return result["choices"][0]["message"]["content"]
+                else:
+                    return f"API 오류: {response.status_code} - {response.text}"
+            else:
+                # 스트리밍 요청
+                response = requests.post(
+                    "https://api.openai.com/v1/chat/completions",
+                    headers=headers,
+                    json=payload,
                     stream=True
                 )
-            else:
-                response = client.chat.completions.create(
-                    model="gpt-4.1",
-                    messages=conversation,
-                    temperature=0.7,
-                    max_tokens=32768,
-                    stream=False
-                )
-                return response.choices[0].message.content
-            
-            return response
+                
+                if response.status_code == 200:
+                    return response
+                else:
+                    return f"API 오류: {response.status_code} - {response.text}"
+                
         except Exception as e:
-            return f"OpenAI API 호출 오류: {str(e)}"
+            return f"API 직접 호출 오류: {str(e)}"
     
     except Exception as e:
         return f"분석 중 오류가 발생했습니다: {str(e)}"
