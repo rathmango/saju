@@ -15,7 +15,8 @@ import re
 import html  # HTML 이스케이프 라이브러리 추가
 import uuid  # 고유 ID 생성 라이브러리 추가
 from supabase import create_client  # Supabase 클라이언트 추가
-from manseryeok_utils import adjust_time_for_manseryeok, format_time_adjustment  # 만세력 시간 보정 유틸리티
+from modules.manseryeok import adjust_time_for_manseryeok, format_time_adjustment  # 만세력 시간 보정 유틸리티
+from modules.chat import submit_message, start_analysis, reset_chat  # 챗봇 관련 함수 추가
 
 # 지역별 경도/위도 데이터 (도.분 형식)
 REGION_COORDINATES = {
@@ -1411,58 +1412,35 @@ if not OPENAI_API_KEY:
 elif st.session_state.saju_data is None:
     st.info("먼저 위에서 사주를 계산해주세요.")
 else:
-    # 대화 초기화 버튼과 사주 분석 시작 버튼을 일렬로 배치
-    col1, col2 = st.columns([1, 1])
-    with col1:
-        # 초기화 콜백 함수 설정
-        if 'start_analysis_clicked' not in st.session_state:
-            st.session_state.start_analysis_clicked = False
-        if 'analysis_in_progress' not in st.session_state:
-            st.session_state.analysis_in_progress = False
-            
-        # 분석 시작 콜백 함수
-        def handle_start_analysis():
-            # 이미 진행 중이면 무시
-            if not st.session_state.analysis_in_progress:
-                st.session_state.start_analysis_clicked = True
-                st.session_state.analysis_in_progress = True
+    # 대화 초기화 버튼 중앙 배치
+    # 초기화 콜백 함수 설정
+    if 'reset_chat_clicked' not in st.session_state:
+        st.session_state.reset_chat_clicked = False
+    if 'reset_in_progress' not in st.session_state:
+        st.session_state.reset_in_progress = False
         
-        st.markdown('<div class="highlight-button">', unsafe_allow_html=True)
-        st.button("🔮 사주 분석 시작하기", on_click=handle_start_analysis, key="start_analysis_button_tab2")
-        st.markdown('</div>', unsafe_allow_html=True)
-        
+    # 초기화 콜백 함수
+    def handle_reset_chat():
+        if not st.session_state.reset_in_progress:
+            st.session_state.reset_chat_clicked = True
+            st.session_state.reset_in_progress = True
+    
+    # 중앙 정렬을 위한 컬럼 배치
+    col1, col2, col3 = st.columns([1, 1, 1])
     with col2:
-        # 초기화 콜백 함수 설정
-        if 'reset_chat_clicked' not in st.session_state:
-            st.session_state.reset_chat_clicked = False
-        if 'reset_in_progress' not in st.session_state:
-            st.session_state.reset_in_progress = False
-            
-        # 초기화 콜백 함수
-        def handle_reset_chat():
-            if not st.session_state.reset_in_progress:
-                st.session_state.reset_chat_clicked = True
-                st.session_state.reset_in_progress = True
-        
         st.button("🔄 대화 초기화", on_click=handle_reset_chat, key="reset_chat_button")
-        
-        # 버튼 클릭 처리
-        if st.session_state.reset_chat_clicked and st.session_state.reset_in_progress:
-            # 모든 메시지와 관련 상태 초기화
-            st.session_state.messages = []
-            st.session_state.message_id_counter = 0
-            st.session_state.last_input = ""
-            st.session_state.input_text = ""
-            st.session_state.reset_chat_clicked = False
-            st.session_state.reset_in_progress = False
-            st.rerun()
+    
+    # 버튼 클릭 처리
+    if st.session_state.reset_chat_clicked and st.session_state.reset_in_progress:
+        # 모든 메시지와 관련 상태 초기화
+        reset_chat()
 
     # 채팅 메시지 표시 (고정된 높이의 컨테이너에)
     chat_container = st.container()
     
     with chat_container:
         if not st.session_state.messages:
-            st.info("👋 사주에 대해 궁금한 점을 물어보세요. 사주 분석 시작하기 버튼을 클릭하여 기본 분석을 받아보세요.")
+            st.info("👋 사주에 대해 궁금한 점을 물어보세요.")
         
         # 메시지 표시
         for msg in st.session_state.messages:
