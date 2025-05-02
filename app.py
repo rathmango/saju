@@ -809,6 +809,12 @@ st.markdown("""
     border: 1px solid #eaeaea;
 }
 
+/* 다크모드 채팅 컨테이너 */
+[data-theme="dark"] .chat-wrapper {
+    background-color: #262730;
+    border-color: #444444;
+}
+
 /* 사용자 메시지 스타일 */
 .user-bubble {
     background-color: #DCF8C6;
@@ -820,6 +826,13 @@ st.markdown("""
     clear: both;
     box-shadow: 0 1px 2px rgba(0,0,0,0.1);
     word-wrap: break-word;
+    color: #000000;
+}
+
+/* 다크모드 사용자 메시지 */
+[data-theme="dark"] .user-bubble {
+    background-color: #005C4B;
+    color: #ffffff;
 }
 
 /* 어시스턴트 메시지 스타일 */
@@ -833,6 +846,13 @@ st.markdown("""
     clear: both;
     box-shadow: 0 1px 2px rgba(0,0,0,0.1);
     word-wrap: break-word;
+    color: #000000;
+}
+
+/* 다크모드 어시스턴트 메시지 */
+[data-theme="dark"] .assistant-bubble {
+    background-color: #444654;
+    color: #ffffff;
 }
 
 /* float 정리용 */
@@ -854,6 +874,11 @@ st.markdown("""
     box-shadow: 0 1px 4px rgba(0,0,0,0.1);
 }
 
+/* 다크모드 입력창 */
+[data-theme="dark"] .chat-input-container {
+    background: #3b3b3b;
+}
+
 /* 텍스트 입력 영역 */
 .stTextArea textarea {
     border-radius: 18px;
@@ -862,6 +887,12 @@ st.markdown("""
     margin-right: 5px;
     background: white;
     box-shadow: none;
+}
+
+/* 다크모드 텍스트 입력 영역 */
+[data-theme="dark"] .stTextArea textarea {
+    background: #2b2b2b;
+    color: #ffffff;
 }
 
 /* 전송 버튼 */
@@ -878,6 +909,11 @@ st.markdown("""
     box-shadow: 0 1px 3px rgba(0,0,0,0.12);
 }
 
+/* 다크모드 전송 버튼 */
+[data-theme="dark"] .chat-send-btn {
+    background-color: #6366F1;
+}
+
 /* 초기화 버튼 */
 .stButton > button {
     background-color: #4F46E5;
@@ -892,6 +928,12 @@ st.markdown("""
 .stButton > button:hover {
     background-color: #6366F1;
     box-shadow: 0 3px 6px rgba(0,0,0,0.16), 0 3px 6px rgba(0,0,0,0.23);
+}
+
+/* 다크모드에서 info 메시지 스타일 개선 */
+[data-theme="dark"] .element-container .stAlert {
+    background-color: rgba(38, 39, 48, 0.8);
+    color: #ffffff;
 }
 </style>
 """, unsafe_allow_html=True)
