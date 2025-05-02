@@ -845,6 +845,13 @@ else:
             if not user_input.strip():
                 return
             
+            # 메시지 중복 방지를 위한 검사
+            # 직전 메시지와 동일한 내용이면 무시
+            if st.session_state.messages and len(st.session_state.messages) > 0:
+                last_messages = [msg for msg in st.session_state.messages if msg.get("role") == "user"]
+                if last_messages and last_messages[-1].get("content") == user_input:
+                    return  # 직전 사용자 메시지와 동일하면 무시
+            
             # 사용자 메시지 추가 (고유 ID 부여)
             st.session_state.message_id_counter += 1
             user_msg_id = f"msg_{st.session_state.message_id_counter}"
@@ -950,17 +957,25 @@ else:
         # 초기화 콜백 함수 설정
         if 'reset_chat_clicked' not in st.session_state:
             st.session_state.reset_chat_clicked = False
+        if 'reset_in_progress' not in st.session_state:
+            st.session_state.reset_in_progress = False
         
         # 초기화 콜백 함수
         def handle_reset_chat():
-            st.session_state.reset_chat_clicked = True
+            if not st.session_state.reset_in_progress:
+                st.session_state.reset_chat_clicked = True
+                st.session_state.reset_in_progress = True
         
         st.button("🔄 대화 초기화", on_click=handle_reset_chat, key="reset_chat_button")
         
         # 버튼 클릭 처리
-        if st.session_state.reset_chat_clicked:
+        if st.session_state.reset_chat_clicked and st.session_state.reset_in_progress:
+            # 모든 메시지와 관련 상태 초기화
             st.session_state.messages = []
+            st.session_state.message_id_counter = 0
+            st.session_state.last_input = ""
             st.session_state.reset_chat_clicked = False
+            st.session_state.reset_in_progress = False
             st.rerun()
 
     # 채팅 메시지 표시 (고정된 높이의 컨테이너에)
@@ -1016,16 +1031,22 @@ else:
     # 콜백 함수 - 입력 처리를 위한 상태 변수 초기화
     if 'submit_clicked' not in st.session_state:
         st.session_state.submit_clicked = False
+    if 'last_input' not in st.session_state:
+        st.session_state.last_input = ""
 
     # 버튼 콜백 함수
     def handle_submit():
-        # 제출 플래그 설정
-        st.session_state.submit_clicked = True
+        # 입력값이 있고 이전 입력과 다른 경우에만 처리
+        current_input = st.session_state.get("temp_input", "").strip()
+        if current_input and current_input != st.session_state.last_input:
+            st.session_state.submit_clicked = True
+            st.session_state.last_input = current_input
 
-    # 입력 필드 (상태 변수로부터 값 사용)
+    # 입력 필드 (세션 상태를 통해 관리)
     with col1:
         temp_input = st.text_area(
             "사주에 대해 궁금한 점을 입력하세요:",
+            key="temp_input",
             height=100,
             placeholder="예: '제 성격은 어떤가요?', '건강운은 어떤가요?', '적합한 직업은 무엇인가요?'",
             label_visibility="collapsed"
@@ -1039,9 +1060,13 @@ else:
     st.caption("💡 **팁**: 메시지를 입력한 후 대화하기 버튼을 클릭하세요.")
 
     # 버튼이 클릭되었고 입력값이 있는 경우 처리
-    if st.session_state.submit_clicked and temp_input.strip():
-        # 메시지 제출
-        submit_message(temp_input)
+    if st.session_state.submit_clicked:
+        current_input = st.session_state.get("temp_input", "").strip()
+        if current_input:
+            # 메시지 제출
+            submit_message(current_input)
+            # 입력 필드 초기화
+            st.session_state.temp_input = ""
         # 제출 플래그 초기화
         st.session_state.submit_clicked = False
 
@@ -1050,16 +1075,21 @@ if not st.session_state.messages:
     # 분석 시작 콜백 함수 설정 변수
     if 'start_analysis_clicked' not in st.session_state:
         st.session_state.start_analysis_clicked = False
+    if 'analysis_in_progress' not in st.session_state:
+        st.session_state.analysis_in_progress = False
         
     # 분석 시작 콜백 함수
     def handle_start_analysis():
-        st.session_state.start_analysis_clicked = True
+        # 이미 진행 중이면 무시
+        if not st.session_state.analysis_in_progress:
+            st.session_state.start_analysis_clicked = True
+            st.session_state.analysis_in_progress = True
         
     if st.button("🔮 사주 분석 시작하기", on_click=handle_start_analysis, key="start_analysis_button_tab2"):
         pass  # 콜백으로 처리하므로 여기서는 아무것도 하지 않음
     
     # 버튼 클릭 시 실제 처리
-    if st.session_state.start_analysis_clicked:
+    if st.session_state.start_analysis_clicked and st.session_state.analysis_in_progress:
         try:
             with st.spinner("사주를 분석 중입니다..."):
                 # 분석 가이드와 사주 데이터를 포함한 초기 프롬프트 구성
@@ -1122,10 +1152,12 @@ if not st.session_state.messages:
                 
                 # 플래그 초기화
                 st.session_state.start_analysis_clicked = False
+                st.session_state.analysis_in_progress = False
                 
                 # 재실행하여 UI 업데이트
                 st.rerun()
         except Exception as e:
             st.error(f"사주 분석 시작 중 오류가 발생했습니다: {str(e)}")
             # 오류 발생 시에도 플래그 초기화
-            st.session_state.start_analysis_clicked = False 
+            st.session_state.start_analysis_clicked = False
+            st.session_state.analysis_in_progress = False 
