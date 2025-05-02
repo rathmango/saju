@@ -4,11 +4,10 @@ import xml.etree.ElementTree as ET
 from datetime import datetime, date
 import pandas as pd
 import os
-from openai import OpenAI
-import time
 import matplotlib.pyplot as plt
 import numpy as np
 from dotenv import load_dotenv
+import openai
 
 # .env 파일 로드
 load_dotenv()
@@ -59,13 +58,18 @@ def stream_response(response, message_placeholder):
         response_area.text(response)
         return response
     
-    # 스트리밍 응답인 경우
-    for chunk in response:
-        if hasattr(chunk.choices[0].delta, 'content') and chunk.choices[0].delta.content is not None:
-            content_chunk = chunk.choices[0].delta.content
-            full_response += content_chunk
-            # 마크다운 대신 일반 텍스트로 표시 (HTML 해석 방지)
-            response_area.text(full_response)
+    # 스트리밍 응답인 경우 (openai v0.28.1)
+    try:
+        for chunk in response:
+            if hasattr(chunk, 'choices') and len(chunk.choices) > 0:
+                if hasattr(chunk.choices[0], 'delta') and hasattr(chunk.choices[0].delta, 'content'):
+                    if chunk.choices[0].delta.content is not None:
+                        content_chunk = chunk.choices[0].delta.content
+                        full_response += content_chunk
+                        # 마크다운 대신 일반 텍스트로 표시 (HTML 해석 방지)
+                        response_area.text(full_response)
+    except Exception as e:
+        response_area.text(f"응답 처리 중 오류가 발생했습니다: {str(e)}")
     
     return full_response
 
@@ -76,17 +80,8 @@ def analyze_saju_with_llm(prompt, messages=None, stream=True):
         if not OPENAI_API_KEY:
             return "API 키가 설정되지 않았습니다. .env 파일에 OPENAI_API_KEY를 설정해주세요."
         
-        # 클라이언트 생성 시 try-except 블록으로 감싸서 버전 호환성 문제 해결
-        try:
-            client = OpenAI(api_key=OPENAI_API_KEY)
-        except TypeError as e:
-            # proxies 인자 문제가 발생한 경우
-            if "proxies" in str(e):
-                # 환경 변수로 직접 설정
-                os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
-                client = OpenAI()
-            else:
-                raise e
+        # API 키 설정
+        openai.api_key = OPENAI_API_KEY
         
         conversation = []
         
@@ -105,18 +100,25 @@ def analyze_saju_with_llm(prompt, messages=None, stream=True):
         conversation.append({"role": "user", "content": prompt})
         
         # OpenAI API 호출
-        response = client.chat.completions.create(
-            model="gpt-4.1",
-            messages=conversation,
-            temperature=0.7,
-            max_tokens=32768,  # 높은 값 설정
-            stream=stream
-        )
-        
         if stream:
-            return response
+            response = openai.ChatCompletion.create(
+                model="gpt-4",
+                messages=conversation,
+                temperature=0.7,
+                max_tokens=8000,
+                stream=True
+            )
         else:
+            response = openai.ChatCompletion.create(
+                model="gpt-4",
+                messages=conversation,
+                temperature=0.7,
+                max_tokens=8000,
+                stream=False
+            )
             return response.choices[0].message.content
+        
+        return response
     
     except Exception as e:
         return f"분석 중 오류가 발생했습니다: {str(e)}"
