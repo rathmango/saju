@@ -1103,11 +1103,7 @@ else:
     
     # 제출 버튼
     with col2:
-        st.markdown(f"""
-        <div class="chat-send-btn" onclick="document.querySelector('button[data-testid=\"stFormSubmitButton\"]').click();">
-            <span style="font-size: 20px;">➤</span>
-        </div>
-        """, unsafe_allow_html=True)
+        # 파란색 원 화살표 버튼 제거하고 대화하기 버튼만 유지
         st.button("대화하기", on_click=handle_submit, key="submit_chat_button", help="메시지 전송", type="primary")
     
     st.markdown("</div>", unsafe_allow_html=True)
