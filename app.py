@@ -7,7 +7,7 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 from dotenv import load_dotenv
-import openai
+from openai import OpenAI
 
 # .env 파일 로드
 load_dotenv()
@@ -58,16 +58,15 @@ def stream_response(response, message_placeholder):
         response_area.text(response)
         return response
     
-    # 스트리밍 응답인 경우 (openai v0.28.1)
+    # 스트리밍 응답인 경우 (openai v1.x.x 방식)
     try:
         for chunk in response:
-            if hasattr(chunk, 'choices') and len(chunk.choices) > 0:
-                if hasattr(chunk.choices[0], 'delta') and hasattr(chunk.choices[0].delta, 'content'):
-                    if chunk.choices[0].delta.content is not None:
-                        content_chunk = chunk.choices[0].delta.content
-                        full_response += content_chunk
-                        # 마크다운 대신 일반 텍스트로 표시 (HTML 해석 방지)
-                        response_area.text(full_response)
+            if hasattr(chunk.choices[0], 'delta') and hasattr(chunk.choices[0].delta, 'content'):
+                if chunk.choices[0].delta.content is not None:
+                    content_chunk = chunk.choices[0].delta.content
+                    full_response += content_chunk
+                    # 마크다운 대신 일반 텍스트로 표시 (HTML 해석 방지)
+                    response_area.text(full_response)
     except Exception as e:
         response_area.text(f"응답 처리 중 오류가 발생했습니다: {str(e)}")
     
@@ -80,8 +79,8 @@ def analyze_saju_with_llm(prompt, messages=None, stream=True):
         if not OPENAI_API_KEY:
             return "API 키가 설정되지 않았습니다. .env 파일에 OPENAI_API_KEY를 설정해주세요."
         
-        # API 키 설정
-        openai.api_key = OPENAI_API_KEY
+        # API 키로 클라이언트 초기화
+        client = OpenAI(api_key=OPENAI_API_KEY)
         
         conversation = []
         
@@ -101,19 +100,19 @@ def analyze_saju_with_llm(prompt, messages=None, stream=True):
         
         # OpenAI API 호출
         if stream:
-            response = openai.ChatCompletion.create(
+            response = client.chat.completions.create(
                 model="gpt-4.1",
                 messages=conversation,
                 temperature=0.7,
-                max_tokens=32,768,
+                max_tokens=32768,
                 stream=True
             )
         else:
-            response = openai.ChatCompletion.create(
+            response = client.chat.completions.create(
                 model="gpt-4.1",
                 messages=conversation,
                 temperature=0.7,
-                max_tokens=32,768,
+                max_tokens=32768,
                 stream=False
             )
             return response.choices[0].message.content
