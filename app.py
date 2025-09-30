@@ -439,102 +439,186 @@ if 'input_text' not in st.session_state:
 if 'clear_input' not in st.session_state:
     st.session_state.clear_input = False
 
-# 스트림릿 UI에 스타일 추가
+# 포스텔러 스타일 UI
 st.markdown("""
 <style>
-/* 버튼 스타일 강화 */
+/* 전체 앱 배경 */
+.stApp {
+    background-color: #F8F9FA;
+}
+
+/* 메인 컨테이너 너비 제한 */
+.main .block-container {
+    max-width: 1200px;
+    padding-left: 2rem;
+    padding-right: 2rem;
+}
+
+/* 메인 타이틀 스타일 */
+h1 {
+    font-size: 2rem !important;
+    font-weight: 700 !important;
+    color: #1a1a1a !important;
+    margin-bottom: 0.5rem !important;
+}
+
+h2 {
+    font-size: 1.5rem !important;
+    font-weight: 600 !important;
+    color: #2c2c2c !important;
+    margin-top: 2rem !important;
+    margin-bottom: 1rem !important;
+}
+
+h3 {
+    font-size: 1.2rem !important;
+    font-weight: 600 !important;
+    color: #3c3c3c !important;
+}
+
+/* 카드 스타일 */
+.saju-card {
+    background: white;
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    margin-bottom: 20px;
+    max-width: 100%;
+}
+
+/* 사주 간지 타일 스타일 */
+.ganji-tile {
+    display: inline-block;
+    width: 70px;
+    height: 70px;
+    border-radius: 12px;
+    text-align: center;
+    line-height: 70px;
+    padding: 0;
+    margin: 5px;
+    font-size: 1.6rem;
+    font-weight: 700;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* 오행 색상 */
+.wood { background: linear-gradient(135deg, #A8E6CF 0%, #88D8B0 100%); color: #1a5f3f; }
+.fire { background: linear-gradient(135deg, #FFB3BA 0%, #FF8A94 100%); color: #8B1E1E; }
+.earth { background: linear-gradient(135deg, #FFE4A3 0%, #FFDB8A 100%); color: #8B6914; }
+.metal { background: linear-gradient(135deg, #E8E8E8 0%, #D0D0D0 100%); color: #4a4a4a; }
+.water { background: linear-gradient(135deg, #AEC6CF 0%, #8EB4D4 100%); color: #1a4d70; }
+
+/* 버튼 스타일 */
 .stButton > button {
-    background-color: #4F46E5;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
-    border-radius: 6px;
-    padding: 0.5rem 1rem;
-    font-weight: 500;
+    border-radius: 12px;
+    padding: 0.75rem 2rem;
+    font-weight: 600;
+    font-size: 1.1rem;
     border: none;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
-    transition: all 0.3s cubic-bezier(.25,.8,.25,1);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    transition: all 0.3s ease;
 }
 
 .stButton > button:hover {
-    background-color: #6366F1;
-    box-shadow: 0 3px 6px rgba(0,0,0,0.16), 0 3px 6px rgba(0,0,0,0.23);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
 }
 
-/* 버튼 강조 (사주 계산하기, 대화하기 등) */
-.highlight-button {
-    transform: scale(1.05);
-}
-
-/* 다크모드 대응 */
-[data-theme="dark"] .stButton > button {
-    background-color: #6366F1;
-    color: white;
-}
-
-[data-theme="dark"] .stButton > button:hover {
-    background-color: #818CF8;
-}
-
-/* 컬러풀한 강조 효과 */
-.title-gradient {
-    background: linear-gradient(90deg, #3B82F6, #8B5CF6);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    display: inline-block;
-    font-weight: bold;
-}
-
-/* 폼 영역 강화 */
+/* Form 스타일 */
 [data-testid="stForm"] {
-    border-radius: 10px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    padding: 20px;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: white;
+    border-radius: 20px;
+    padding: 30px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+    border: none;
 }
 
-/* 헤더 스타일 강화 */
-h1, h2, h3 {
-    font-weight: 600;
+/* 입력 필드 */
+.stSelectbox, .stDateInput, .stRadio {
+    font-size: 1rem;
+}
+
+/* 테이블 스타일 개선 */
+table {
+    border-collapse: separate !important;
+    border-spacing: 0 !important;
+    border-radius: 12px !important;
+    overflow: hidden !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08) !important;
+}
+
+thead tr th {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    color: white !important;
+    font-weight: 600 !important;
+    padding: 16px !important;
+    border: none !important;
+}
+
+tbody tr td {
+    padding: 14px !important;
+    border-bottom: 1px solid #f0f0f0 !important;
+}
+
+tbody tr:last-child td {
+    border-bottom: none !important;
+}
+
+tbody tr:hover {
+    background-color: #f8f9fa !important;
+}
+
+/* Info/Success/Warning 박스 */
+.stAlert {
+    border-radius: 12px !important;
+    border: none !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08) !important;
 }
 
 /* 텍스트 입력 영역 */
 .stTextArea textarea {
-    border-radius: 18px !important;
-    border: none !important;
-    padding: 10px 15px !important;
-    margin-right: 5px !important;
-    background: white !important;
-    box-shadow: none !important;
-    color: #000000 !important;
-    font-weight: 500 !important;
+    border-radius: 12px !important;
+    border: 2px solid #e0e0e0 !important;
+    padding: 12px !important;
+    font-size: 1rem !important;
 }
 
-/* 다크모드 텍스트 입력 영역 */
-[data-theme="dark"] .stTextArea textarea {
-    background: #2b2b2b !important;
-    color: #ffffff !important;
-    font-weight: 500 !important;
-}
-
-/* 입력 창 선택 시 테두리 색상 */
 .stTextArea textarea:focus {
-    border: 2px solid #4CAF50 !important;
-    box-shadow: 0 0 5px rgba(76, 175, 80, 0.5) !important;
+    border-color: #667eea !important;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1) !important;
+}
+
+/* 다크모드 대응 */
+[data-theme="dark"] .stApp {
+    background-color: #1a1a1a;
+}
+
+[data-theme="dark"] .saju-card {
+    background: #2d2d2d;
+}
+
+[data-theme="dark"] [data-testid="stForm"] {
+    background: #2d2d2d;
+}
+
+[data-theme="dark"] h1, [data-theme="dark"] h2, [data-theme="dark"] h3 {
+    color: #ffffff !important;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# 탭 구조 제거 - 하나의 흐름으로 구성
-st.title("🔮 로컬 만세력 사주풀이")
+# 헤더
 st.markdown("""
-**로컬 만세력 사주풀이**는 한국 전통 만세력을 기반으로 정확한 시간 보정을 통해 사주를 계산하고, 
-AI가 사주를 실시간으로 분석해드립니다. 수백 가지 사주 패턴과 법칙을 바탕으로 
-깊이 있는 사주 해석을 제공합니다.
-""")
+<div style='text-align: center; padding: 20px 0;'>
+    <h1 style='font-size: 2.5rem; margin-bottom: 10px;'>🔮 만세력 사주풀이</h1>
+    <p style='font-size: 1.1rem; color: #666; margin-top: 0;'>전통 만세력 기반의 정확한 사주 계산 및 AI 분석</p>
+</div>
+""", unsafe_allow_html=True)
 
 # 사주 계산 영역
-st.markdown("### 📅 생년월일 입력")
-st.markdown("생년월일시와 성별을 입력하면 만세력 기준으로 정확히 보정된 사주의 모든 요소를 계산해드립니다.")
+st.markdown("<br>", unsafe_allow_html=True)
 
 # 지역 선택 세션 상태 초기화
 if 'selected_region_category' not in st.session_state:
@@ -542,11 +626,18 @@ if 'selected_region_category' not in st.session_state:
 if 'selected_region' not in st.session_state:
     st.session_state.selected_region = "서울특별시"
 
-col1, col2 = st.columns([3, 2])
+# 카드 안에 모든 입력 폼 넣기
+st.markdown("""
+<div class='saju-card'>
+    <h2 style='margin-top: 0;'>📅 생년월일 입력</h2>
+    <p style='color: #666; font-size: 0.95rem; margin-bottom: 20px;'>생년월일시와 성별을 입력하면 만세력 기준으로 정확히 보정된 사주의 모든 요소를 계산해드립니다.</p>
+""", unsafe_allow_html=True)
+
+# 지역 선택을 form 밖으로 이동 (동적 업데이트를 위해)
+st.markdown("#### 태어난 지역")
+col1, col2 = st.columns(2)
 
 with col1:
-    # 지역 선택을 form 밖으로 이동 (동적 업데이트를 위해)
-    st.markdown("**태어난 지역 선택**")
     region_category = st.selectbox(
         "광역 지역",
         [
@@ -563,7 +654,8 @@ with col1:
         ],
         key="region_category_select"
     )
-    
+
+with col2:
     # 선택한 카테고리에 따라 세부 지역 옵션 필터링
     filtered_regions = []
     if region_category == "서울/경기/인천":
@@ -601,82 +693,74 @@ with col1:
     
     st.session_state.selected_region = birth_region
 
-with col2:
-    # 만세력 보정 방법으로 변경하고 태어난 시간대 섹션을 통합
-    with st.expander("ℹ️ 만세력 보정 방법", expanded=False):
-        st.info("""
-        각 지역별 시차는 만세력 기준인 동경 135도를 기준으로 보정됩니다.
-        이는 전통 역법에서 사용하는 표준 경도로, 현대 표준시와는 다릅니다.
-        
-        지역에 따라 실제 출생 시간이 사주 계산에 사용되는 
-        시간과 차이가 있을 수 있습니다. 예를 들어 서울에서
-        15시에 출생한 경우, 만세력 기준으로는 약 15시 32분으로
-        보정되어 사주가 계산됩니다.
-        
-        이 시간 보정은 지역의 경도 차이에 따라 결정됩니다(경도 1도당 4분 차이).
-        
-        <전통 십이지지 시간>
-        - 자시(子時): 23:00 ~ 01:00 (쥐)
-        - 축시(丑時): 01:00 ~ 03:00 (소)
-        - 인시(寅時): 03:00 ~ 05:00 (호랑이)
-        - 묘시(卯時): 05:00 ~ 07:00 (토끼)
-        - 진시(辰時): 07:00 ~ 09:00 (용)
-        - 사시(巳時): 09:00 ~ 11:00 (뱀)
-        - 오시(午時): 11:00 ~ 13:00 (말)
-        - 미시(未時): 13:00 ~ 15:00 (양)
-        - 신시(申時): 15:00 ~ 17:00 (원숭이)
-        - 유시(酉時): 17:00 ~ 19:00 (닭)
-        - 술시(戌時): 19:00 ~ 21:00 (개)
-        - 해시(亥時): 21:00 ~ 23:00 (돼지)
-        """)
+# expander를 카드 안으로
+with st.expander("ℹ️ 만세력 보정 방법", expanded=False):
+    st.info("""
+    각 지역별 시차는 만세력 기준인 동경 135도를 기준으로 보정됩니다.
+    이는 전통 역법에서 사용하는 표준 경도로, 현대 표준시와는 다릅니다.
+    
+    **예시**: 서울에서 15시에 출생한 경우, 만세력 기준으로는 약 15시 32분으로 보정
+    
+    **십이지지 시간**
+    자시(23-01시) | 축시(01-03시) | 인시(03-05시) | 묘시(05-07시)
+    진시(07-09시) | 사시(09-11시) | 오시(11-13시) | 미시(13-15시)
+    신시(15-17시) | 유시(17-19시) | 술시(19-21시) | 해시(21-23시)
+    """)
 
 # Form 시작 - 지역 선택은 위에서 이미 완료
+st.markdown("<br>", unsafe_allow_html=True)
+
 with st.form("birth_info_form"):
-    form_col1, form_col2 = st.columns([3, 2])
+    st.markdown("#### 생년월일시")
     
-    with form_col1:
-        # 음력/양력 선택
-        calendar_type = st.radio("날짜 유형", ["양력", "음력"])
-        is_lunar = calendar_type == "음력"
-        
-        # 날짜 입력
-        birth_date = st.date_input(
-            "생년월일",
-            datetime.now().date(),
-            min_value=date(1900, 1, 1),
-            max_value=date(2100, 12, 31)
+    # 음력/양력 선택
+    calendar_type = st.radio("날짜 유형", ["양력", "음력"], horizontal=True)
+    is_lunar = calendar_type == "음력"
+    
+    # 날짜 입력
+    birth_date = st.date_input(
+        "생년월일",
+        datetime.now().date(),
+        min_value=date(1900, 1, 1),
+        max_value=date(2100, 12, 31)
+    )
+    
+    # 음력 윤달 선택 (음력 선택 시)
+    lunar_leap_month = "0"
+    if is_lunar:
+        is_leap_month = st.checkbox("윤달입니까?")
+        if is_leap_month:
+            lunar_leap_month = "1"
+    
+    # 시간 입력
+    time_col1, time_col2 = st.columns(2)
+    with time_col1:
+        birth_hour = st.selectbox(
+            "태어난 시(時)",
+            list(range(24)),
+            format_func=lambda x: f"{x:02d}시"
         )
-        
-        # 음력 윤달 선택 (음력 선택 시)
-        lunar_leap_month = "0"
-        if is_lunar:
-            is_leap_month = st.checkbox("윤달입니까?")
-            if is_leap_month:
-                lunar_leap_month = "1"
-        
-        # 시간 입력
-        time_col1, time_col2 = st.columns(2)
-        with time_col1:
-            birth_hour = st.selectbox(
-                "태어난 시(時)",
-                list(range(24)),
-                format_func=lambda x: f"{x:02d}시"
-            )
-        with time_col2:
-            birth_minute = st.selectbox(
-                "태어난 분(分)",
-                list(range(0, 60, 1)),
-                format_func=lambda x: f"{x:02d}분"
-            )
-        
-        # 성별 입력
-        gender = st.radio("성별", ["남", "여"])
-        
-        # 선택된 지역 표시
-        st.info(f"📍 선택된 출생 지역: {st.session_state.selected_region}")
-        
-        # 제출 버튼
-        submit_button = st.form_submit_button("💫 사주 계산하기", type="primary", use_container_width=True)
+    with time_col2:
+        birth_minute = st.selectbox(
+            "태어난 분(分)",
+            list(range(0, 60, 1)),
+            format_func=lambda x: f"{x:02d}분"
+        )
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # 성별 입력
+    st.markdown("#### 성별")
+    gender = st.radio("성별 선택", ["남", "여"], horizontal=True, label_visibility="collapsed")
+    
+    # 선택된 지역 표시
+    st.info(f"📍 선택된 출생 지역: **{st.session_state.selected_region}**")
+    
+    # 제출 버튼
+    submit_button = st.form_submit_button("💫 사주 계산하기", type="primary", use_container_width=True)
+
+# 카드 닫기
+st.markdown("</div>", unsafe_allow_html=True)
 
 # 사주 계산 처리
 if submit_button:
@@ -772,53 +856,125 @@ if submit_button:
         st.table(basic_info_df)
         
         # 사주 정보 테이블 표시
-        st.markdown("### 사주팔자")
-        st.markdown(f"**일간(일주 천간)**: {saju_data['일간']}")
-        st.markdown("※ 아래 사주는 만세력 기준으로 보정된 시간을 바탕으로 계산되었습니다.")
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown(f"""
+        <div class='saju-card'>
+            <h2 style='margin-top: 0;'>🎴 사주팔자</h2>
+            <p style='color: #666; margin-bottom: 20px;'><strong>일간(日干)</strong>: {saju_data['일간']} | 만세력 기준으로 보정된 시간 기반</p>
+        """, unsafe_allow_html=True)
         
-        # 사주 팔자 표 생성
-        saju_df = pd.DataFrame({
-            "구분": ["천간", "지지", "십이운성"],
-            "연주": [saju_data["연주"][0], saju_data["연주"][1], saju_data["십이운성"]["연주"]],
-            "월주": [saju_data["월주"][0], saju_data["월주"][1], saju_data["십이운성"]["월주"]],
-            "일주": [saju_data["일주"][0], saju_data["일주"][1], saju_data["십이운성"]["일주"]],
-            "시주": [saju_data["시주"][0], saju_data["시주"][1], saju_data["십이운성"]["시주"]],
-        })
-        st.table(saju_df)
+        # 오행별 색상 매핑
+        element_colors = {
+            "갑": "wood", "을": "wood",
+            "병": "fire", "정": "fire",
+            "무": "earth", "기": "earth",
+            "경": "metal", "신": "metal",
+            "임": "water", "계": "water",
+            "자": "water", "축": "earth", "인": "wood", "묘": "wood",
+            "진": "earth", "사": "fire", "오": "fire", "미": "earth",
+            "신": "metal", "유": "metal", "술": "earth", "해": "water"
+        }
+        
+        # 사주팔자를 포스텔러 스타일 타일로 표시
+        pillars = [
+            ("시주", saju_data["시주"]),
+            ("일주", saju_data["일주"]),
+            ("월주", saju_data["월주"]),
+            ("연주", saju_data["연주"])
+        ]
+        
+        # 4개 컬럼으로 사주 표시
+        cols = st.columns(4)
+        for idx, (pillar_name, (천간, 지지)) in enumerate(pillars):
+            천간_color = element_colors.get(천간, "metal")
+            지지_color = element_colors.get(지지, "metal")
+            
+            with cols[idx]:
+                st.markdown(f"""
+                <div style='text-align: center; padding: 10px;'>
+                    <div style='font-size: 0.9rem; color: #666; margin-bottom: 12px; font-weight: 600;'>{pillar_name}</div>
+                    <div class='ganji-tile {천간_color}' style='margin: 0 auto;'>{천간}</div>
+                    <div class='ganji-tile {지지_color}' style='margin: 8px auto 0;'>{지지}</div>
+                    <div style='font-size: 0.8rem; color: #999; margin-top: 12px;'>{saju_data["십이운성"][pillar_name]}</div>
+                </div>
+                """, unsafe_allow_html=True)
+        
+        st.markdown("</div>", unsafe_allow_html=True)  # saju-card 닫기
         
         # 오행 분포 그래프
-        st.markdown("### 오행 분포")
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("""
+        <div class='saju-card'>
+            <h2 style='margin-top: 0;'>⚖️ 오행 분포</h2>
+        """, unsafe_allow_html=True)
         
         # 데이터 준비
         elements = saju_data["오행개수"]
-        elements_labels = list(elements.keys())
-        elements_values = list(elements.values())
+        total = sum(elements.values())
         
-        # 색상 매핑
-        colors = {"목": "#00CC00", "화": "#FF0000", "토": "#FFCC00", "금": "#FFFF00", "수": "#0000FF"}
-        chart_colors = [colors[element] for element in elements_labels]
+        # 오행별 색상
+        element_display = {
+            "목": ("🌳 목(木)", "#88D8B0"),
+            "화": ("🔥 화(火)", "#FF8A94"),
+            "토": ("🏔️ 토(土)", "#FFDB8A"),
+            "금": ("⚡ 금(金)", "#D0D0D0"),
+            "수": ("💧 수(水)", "#8EB4D4")
+        }
         
-        # Streamlit 내장 차트
-        elements_df = pd.DataFrame({
-            "오행": elements_labels,
-            "개수": elements_values
-        })
+        # 가로 막대 그래프 스타일로 표시
+        for element, count in elements.items():
+            if element in element_display:
+                label, color = element_display[element]
+                percentage = (count / total * 100) if total > 0 else 0
+                st.markdown(f"""
+                <div style='margin: 15px 0;'>
+                    <div style='display: flex; justify-content: space-between; margin-bottom: 8px;'>
+                        <span style='font-weight: 600; font-size: 1.1rem;'>{label}</span>
+                        <span style='font-weight: 600; color: {color};'>{count}개 ({percentage:.1f}%)</span>
+                    </div>
+                    <div style='background: #f0f0f0; border-radius: 10px; height: 30px; overflow: hidden;'>
+                        <div style='background: {color}; height: 100%; width: {percentage}%; border-radius: 10px; transition: width 0.3s ease;'></div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
         
-        st.bar_chart(elements_df.set_index("오행"))
+        st.markdown("</div>", unsafe_allow_html=True)
         
         # 대운 표시
-        st.markdown("### 대운")
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("""
+        <div class='saju-card'>
+            <h2 style='margin-top: 0;'>🌊 대운</h2>
+            <p style='color: #666; margin-bottom: 20px;'>10년 주기로 변화하는 인생의 큰 흐름</p>
+        """, unsafe_allow_html=True)
         
-        # 대운 정보를 데이터프레임으로 변환
-        major_fortunes_df = pd.DataFrame(saju_data["대운"])
-        # 나이대 열 추가
-        major_fortunes_df["나이대"] = major_fortunes_df.apply(
-            lambda row: f"{row['시작연령']} ~ {row['시작연령'] + 9}세", axis=1
-        )
-        # 필요한 열만 선택하고 순서 변경
-        major_fortunes_df = major_fortunes_df[["나이대", "간지", "시작년도", "종료년도"]]
-        # 테이블 표시
-        st.table(major_fortunes_df)
+        # 대운을 타일 형태로 표시 (5개씩 한 줄)
+        major_fortunes = saju_data["대운"]
+        st.markdown("<div style='display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px;'>", unsafe_allow_html=True)
+        
+        for fortune in major_fortunes[:10]:  # 처음 10개 대운만 표시
+            ganji = fortune["간지"]
+            age_range = f"{fortune['시작연령']}-{fortune['시작연령']+9}세"
+            year_range = f"{fortune['시작년도']}-{fortune['종료년도']}"
+            
+            # 간지의 첫 글자와 두번째 글자 색상
+            천간 = ganji[0] if len(ganji) > 0 else ""
+            지지 = ganji[1] if len(ganji) > 1 else ""
+            천간_color = element_colors.get(천간, "metal")
+            지지_color = element_colors.get(지지, "metal")
+            
+            st.markdown(f"""
+            <div style='background: white; border-radius: 12px; padding: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.08); text-align: center;'>
+                <div style='font-size: 0.85rem; color: #999; margin-bottom: 8px;'>{age_range}</div>
+                <div style='display: flex; justify-content: center; gap: 4px; margin: 8px 0;'>
+                    <span class='ganji-tile {천간_color}' style='width: 50px; height: 50px; font-size: 1.5rem; line-height: 50px; padding: 0;'>{천간}</span>
+                    <span class='ganji-tile {지지_color}' style='width: 50px; height: 50px; font-size: 1.5rem; line-height: 50px; padding: 0;'>{지지}</span>
+                </div>
+                <div style='font-size: 0.75rem; color: #999;'>{year_range}</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        st.markdown("</div></div>", unsafe_allow_html=True)
     
     except Exception as e:
         import traceback
@@ -840,62 +996,111 @@ AI 사주 분석가가 만세력 기반으로 정확히 계산된 사주를 바�
 수백 가지 사주 패턴과 법칙을 학습한 AI가 사주의 특성과 운세를 상세히 풀이해드립니다.
 """)
 
-# 채팅 UI 스타일 추가
+# GPT/Claude 스타일 채팅 UI
 st.markdown("""
 <style>
-/* 채팅 컨테이너 스타일 */
-.chat-wrapper {
-    max-height: 500px;
+/* 채팅 컨테이너 - GPT 스타일 */
+.chat-container {
+    max-height: 600px;
     overflow-y: auto;
-    padding: 20px;
-    border-radius: 12px;
-    background-color: #f9f9f9;
+    padding: 0;
     margin-bottom: 20px;
-    border: 1px solid #eaeaea;
+    background: transparent;
 }
 
-/* 다크모드 채팅 컨테이너 */
-[data-theme="dark"] .chat-wrapper {
-    background-color: #262730;
-    border-color: #444444;
+/* 메시지 그룹 */
+.message-group {
+    display: flex;
+    padding: 16px 0;
+    gap: 12px;
+    border-bottom: 1px solid #f0f0f0;
 }
 
-/* 사용자 메시지 스타일 */
-.user-bubble {
-    background-color: #DCF8C6;
-    border-radius: 18px 18px 0 18px;
-    padding: 12px 15px;
-    margin: 8px 0 8px auto;
-    max-width: 80%;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-    word-wrap: break-word;
-    color: #000000;
-    display: block;
+/* 사용자 메시지 그룹 */
+.user-message-group {
+    background: #f8f9fa;
 }
 
-/* 다크모드 사용자 메시지 */
-[data-theme="dark"] .user-bubble {
-    background-color: #005C4B;
-    color: #ffffff;
+/* AI 메시지 그룹 */
+.ai-message-group {
+    background: white;
 }
 
-/* 어시스턴트 메시지 스타일 */
-.assistant-bubble {
-    background-color: #F1F0F0;
-    border-radius: 18px 18px 18px 0;
-    padding: 12px 15px;
-    margin: 8px 0;
-    max-width: 80%;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-    word-wrap: break-word;
-    color: #000000;
-    white-space: pre-wrap;
+/* 아바타 */
+.avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+    flex-shrink: 0;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    font-weight: 600;
 }
 
-/* 다크모드 어시스턴트 메시지 */
-[data-theme="dark"] .assistant-bubble {
-    background-color: #444654;
-    color: #ffffff;
+.user-avatar {
+    background: #e9ecef;
+    color: #495057;
+}
+
+/* 메시지 내용 */
+.message-content {
+    flex: 1;
+    padding: 0 20px;
+    line-height: 1.7;
+    font-size: 1rem;
+    color: #1a1a1a;
+    max-width: 100%;
+}
+
+.message-content p {
+    margin: 0 0 12px 0;
+}
+
+.message-content p:last-child {
+    margin-bottom: 0;
+}
+
+/* 입력 영역 - Claude 스타일 */
+.chat-input-wrapper {
+    position: sticky;
+    bottom: 0;
+    background: white;
+    padding: 20px 0;
+    border-top: 1px solid #e0e0e0;
+}
+
+.chat-input-box {
+    display: flex;
+    gap: 12px;
+    align-items: flex-end;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+/* 다크모드 */
+[data-theme="dark"] .message-group {
+    border-bottom-color: #2d2d2d;
+}
+
+[data-theme="dark"] .user-message-group {
+    background: #2d2d2d;
+}
+
+[data-theme="dark"] .ai-message-group {
+    background: #1a1a1a;
+}
+
+[data-theme="dark"] .message-content {
+    color: #e0e0e0;
+}
+
+[data-theme="dark"] .chat-input-wrapper {
+    background: #1a1a1a;
+    border-top-color: #2d2d2d;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -927,11 +1132,17 @@ else:
         # 모든 메시지와 관련 상태 초기화
         reset_chat()
 
-    # 채팅 메시지 표시 영역
-    st.markdown('<div class="chat-wrapper">', unsafe_allow_html=True)
+    # GPT/Claude 스타일 채팅 메시지 표시
+    st.markdown('<div class="chat-container">', unsafe_allow_html=True)
     
     if not st.session_state.messages:
-        st.info("👋 사주에 대해 궁금한 점을 물어보세요!")
+        st.markdown("""
+        <div style='text-align: center; padding: 60px 20px; color: #999;'>
+            <div style='font-size: 3rem; margin-bottom: 16px;'>💬</div>
+            <h3 style='color: #666; font-weight: 500;'>사주 분석을 시작해보세요</h3>
+            <p style='color: #999;'>궁금한 점을 자유롭게 물어보세요</p>
+        </div>
+        """, unsafe_allow_html=True)
     else:
         # 메시지 표시
         for msg in st.session_state.messages:
@@ -949,18 +1160,27 @@ else:
                 safe_content = html.escape(msg_content).replace('\n', '<br/>')
                     
                 if msg_role == "user":
-                    # 사용자 메시지 표시
+                    # 사용자 메시지 - GPT 스타일
                     st.markdown(f"""
-                    <div class="user-bubble">
-                        {safe_content}
+                    <div class="message-group user-message-group">
+                        <div style="max-width: 900px; width: 100%; margin: 0 auto; display: flex; gap: 12px; padding: 0 20px;">
+                            <div class="avatar user-avatar">👤</div>
+                            <div class="message-content">
+                                {safe_content}
+                            </div>
+                        </div>
                     </div>
                     """, unsafe_allow_html=True)
                 elif msg_role == "assistant":
-                    # 어시스턴트 메시지 표시
+                    # AI 메시지 - GPT 스타일
                     st.markdown(f"""
-                    <div class="assistant-bubble">
-                        <strong>🔮 사주 분석가</strong><br/>
-                        {safe_content}
+                    <div class="message-group ai-message-group">
+                        <div style="max-width: 900px; width: 100%; margin: 0 auto; display: flex; gap: 12px; padding: 0 20px;">
+                            <div class="avatar">🔮</div>
+                            <div class="message-content">
+                                {safe_content}
+                            </div>
+                        </div>
                     </div>
                     """, unsafe_allow_html=True)
             except Exception as e:
@@ -970,31 +1190,37 @@ else:
     
     st.markdown('</div>', unsafe_allow_html=True)
     
-    # 입력 영역
-    st.markdown("---")
-    st.markdown("**질문을 입력하세요:**")
+    # Claude/GPT 스타일 입력 영역
+    st.markdown('<div class="chat-input-wrapper">', unsafe_allow_html=True)
     
     # 입력 상태 초기화
     if 'chat_input_key' not in st.session_state:
         st.session_state.chat_input_key = 0
     
-    # 입력 필드와 버튼
-    col1, col2 = st.columns([5, 1])
+    # 컨테이너로 감싸서 중앙 정렬
+    st.markdown('<div style="max-width: 900px; margin: 0 auto; padding: 0 20px;">', unsafe_allow_html=True)
+    
+    # 입력 필드와 버튼을 한 줄로
+    col1, col2 = st.columns([6, 1])
     
     with col1:
         user_input = st.text_area(
-            "질문 입력",
-            height=80,
-            placeholder="예: 제 성격은 어떤가요? 건강운은 어떤가요? 적합한 직업은 무엇인가요?",
+            "메시지 입력",
+            height=100,
+            placeholder="사주에 대해 궁금한 점을 물어보세요... (예: 제 성격은 어떤가요? 직업운은 어떤가요?)",
             key=f"chat_input_{st.session_state.chat_input_key}",
             label_visibility="collapsed"
         )
     
     with col2:
-        send_button = st.button("📨 전송", type="primary", use_container_width=True)
+        send_button = st.button(
+            "전송 ↑",
+            type="primary",
+            use_container_width=True,
+            help="메시지 전송"
+        )
     
-    # 팁 표시
-    st.caption("💡 **도움말**: 궁금한 점을 자유롭게 물어보세요. AI가 사주 데이터를 바탕으로 답변해드립니다.")
+    st.markdown('</div></div>', unsafe_allow_html=True)
     
     # 메시지 전송 처리
     if send_button and user_input and user_input.strip():
