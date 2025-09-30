@@ -536,10 +536,105 @@ AI가 사주를 실시간으로 분석해드립니다. 수백 가지 사주 패�
 st.markdown("### 📅 생년월일 입력")
 st.markdown("생년월일시와 성별을 입력하면 만세력 기준으로 정확히 보정된 사주의 모든 요소를 계산해드립니다.")
 
-with st.form("birth_info_form"):
-    col1, col2 = st.columns([3, 2])
+# 지역 선택 세션 상태 초기화
+if 'selected_region_category' not in st.session_state:
+    st.session_state.selected_region_category = "서울/경기/인천"
+if 'selected_region' not in st.session_state:
+    st.session_state.selected_region = "서울특별시"
+
+col1, col2 = st.columns([3, 2])
+
+with col1:
+    # 지역 선택을 form 밖으로 이동 (동적 업데이트를 위해)
+    st.markdown("**태어난 지역 선택**")
+    region_category = st.selectbox(
+        "광역 지역",
+        [
+            "서울/경기/인천",
+            "강원도",
+            "충청북도",
+            "충청남도/세종",
+            "전라북도",
+            "전라남도",
+            "경상북도",
+            "경상남도/부산/울산",
+            "제주도",
+            "광역시"
+        ],
+        key="region_category_select"
+    )
     
-    with col1:
+    # 선택한 카테고리에 따라 세부 지역 옵션 필터링
+    filtered_regions = []
+    if region_category == "서울/경기/인천":
+        filtered_regions = [region for region in REGION_COORDINATES.keys() 
+                          if region.startswith("서울") or region.startswith("경기도") or region.startswith("인천")]
+    elif region_category == "강원도":
+        filtered_regions = [region for region in REGION_COORDINATES.keys() if region.startswith("강원")]
+    elif region_category == "충청북도":
+        filtered_regions = [region for region in REGION_COORDINATES.keys() if region.startswith("충청북도")]
+    elif region_category == "충청남도/세종":
+        filtered_regions = [region for region in REGION_COORDINATES.keys() 
+                          if region.startswith("충청남도") or region.startswith("세종")]
+    elif region_category == "전라북도":
+        filtered_regions = [region for region in REGION_COORDINATES.keys() if region.startswith("전라북도")]
+    elif region_category == "전라남도":
+        filtered_regions = [region for region in REGION_COORDINATES.keys() if region.startswith("전라남도")]
+    elif region_category == "경상북도":
+        filtered_regions = [region for region in REGION_COORDINATES.keys() if region.startswith("경상북도")]
+    elif region_category == "경상남도/부산/울산":
+        filtered_regions = [region for region in REGION_COORDINATES.keys() 
+                          if region.startswith("경상남도") or region.startswith("부산") or region.startswith("울산")]
+    elif region_category == "제주도":
+        filtered_regions = [region for region in REGION_COORDINATES.keys() if region.startswith("제주")]
+    elif region_category == "광역시":
+        filtered_regions = [region for region in REGION_COORDINATES.keys() 
+                          if region.endswith("광역시") and not (region.startswith("부산") or region.startswith("울산"))]
+        filtered_regions.append("세종특별자치시")
+    
+    # 세부 지역 선택 (필터링된 지역만 표시)
+    birth_region = st.selectbox(
+        "시/군/구",
+        filtered_regions,
+        key="detailed_region_select"
+    )
+    
+    st.session_state.selected_region = birth_region
+
+with col2:
+    # 만세력 보정 방법으로 변경하고 태어난 시간대 섹션을 통합
+    with st.expander("ℹ️ 만세력 보정 방법", expanded=False):
+        st.info("""
+        각 지역별 시차는 만세력 기준인 동경 135도를 기준으로 보정됩니다.
+        이는 전통 역법에서 사용하는 표준 경도로, 현대 표준시와는 다릅니다.
+        
+        지역에 따라 실제 출생 시간이 사주 계산에 사용되는 
+        시간과 차이가 있을 수 있습니다. 예를 들어 서울에서
+        15시에 출생한 경우, 만세력 기준으로는 약 15시 32분으로
+        보정되어 사주가 계산됩니다.
+        
+        이 시간 보정은 지역의 경도 차이에 따라 결정됩니다(경도 1도당 4분 차이).
+        
+        <전통 십이지지 시간>
+        - 자시(子時): 23:00 ~ 01:00 (쥐)
+        - 축시(丑時): 01:00 ~ 03:00 (소)
+        - 인시(寅時): 03:00 ~ 05:00 (호랑이)
+        - 묘시(卯時): 05:00 ~ 07:00 (토끼)
+        - 진시(辰時): 07:00 ~ 09:00 (용)
+        - 사시(巳時): 09:00 ~ 11:00 (뱀)
+        - 오시(午時): 11:00 ~ 13:00 (말)
+        - 미시(未時): 13:00 ~ 15:00 (양)
+        - 신시(申時): 15:00 ~ 17:00 (원숭이)
+        - 유시(酉時): 17:00 ~ 19:00 (닭)
+        - 술시(戌時): 19:00 ~ 21:00 (개)
+        - 해시(亥時): 21:00 ~ 23:00 (돼지)
+        """)
+
+# Form 시작 - 지역 선택은 위에서 이미 완료
+with st.form("birth_info_form"):
+    form_col1, form_col2 = st.columns([3, 2])
+    
+    with form_col1:
         # 음력/양력 선택
         calendar_type = st.radio("날짜 유형", ["양력", "음력"])
         is_lunar = calendar_type == "음력"
@@ -574,91 +669,16 @@ with st.form("birth_info_form"):
                 format_func=lambda x: f"{x:02d}분"
             )
         
-        # 지역 선택
-        region_category = st.selectbox(
-            "태어난 지역(광역)",
-            [
-                "서울/경기/인천",
-                "강원도",
-                "충청북도",
-                "충청남도/세종",
-                "전라북도",
-                "전라남도",
-                "경상북도",
-                "경상남도/부산/울산",
-                "제주도",
-                "광역시"
-            ]
-        )
-        
-        # 선택한 카테고리에 따라 세부 지역 옵션 필터링
-        filtered_regions = []
-        if region_category == "서울/경기/인천":
-            filtered_regions = [region for region in REGION_COORDINATES.keys() 
-                              if region.startswith("서울") or region.startswith("경기도") or region.startswith("인천")]
-        elif region_category == "강원도":
-            filtered_regions = [region for region in REGION_COORDINATES.keys() if region.startswith("강원")]
-        elif region_category == "충청북도":
-            filtered_regions = [region for region in REGION_COORDINATES.keys() if region.startswith("충청북도")]
-        elif region_category == "충청남도/세종":
-            filtered_regions = [region for region in REGION_COORDINATES.keys() 
-                              if region.startswith("충청남도") or region.startswith("세종")]
-        elif region_category == "전라북도":
-            filtered_regions = [region for region in REGION_COORDINATES.keys() if region.startswith("전라북도")]
-        elif region_category == "전라남도":
-            filtered_regions = [region for region in REGION_COORDINATES.keys() if region.startswith("전라남도")]
-        elif region_category == "경상북도":
-            filtered_regions = [region for region in REGION_COORDINATES.keys() if region.startswith("경상북도")]
-        elif region_category == "경상남도/부산/울산":
-            filtered_regions = [region for region in REGION_COORDINATES.keys() 
-                              if region.startswith("경상남도") or region.startswith("부산") or region.startswith("울산")]
-        elif region_category == "제주도":
-            filtered_regions = [region for region in REGION_COORDINATES.keys() if region.startswith("제주")]
-        elif region_category == "광역시":
-            filtered_regions = [region for region in REGION_COORDINATES.keys() 
-                              if region.endswith("광역시") and not (region.startswith("부산") or region.startswith("울산"))]
-            filtered_regions.append("세종특별자치시")
-        
-        birth_region = st.selectbox("태어난 지역(시/군)", filtered_regions)
-        
         # 성별 입력
         gender = st.radio("성별", ["남", "여"])
         
-        # 제출 버튼을 여기로 이동 (강조 클래스 추가)
-        st.markdown('<div class="highlight-button">', unsafe_allow_html=True)
-        submit_button = st.form_submit_button("💫 사주 계산하기")
-        st.markdown('</div>', unsafe_allow_html=True)
+        # 선택된 지역 표시
+        st.info(f"📍 선택된 출생 지역: {st.session_state.selected_region}")
         
-    with col2:
-        # 만세력 보정 방법으로 변경하고 태어난 시간대 섹션을 통합
-        with st.expander("ℹ️ 만세력 보정 방법", expanded=False):
-            st.info("""
-            각 지역별 시차는 만세력 기준인 동경 135도를 기준으로 보정됩니다.
-            이는 전통 역법에서 사용하는 표준 경도로, 현대 표준시와는 다릅니다.
-            
-            지역에 따라 실제 출생 시간이 사주 계산에 사용되는 
-            시간과 차이가 있을 수 있습니다. 예를 들어 서울에서
-            15시에 출생한 경우, 만세력 기준으로는 약 15시 32분으로
-            보정되어 사주가 계산됩니다.
-            
-            이 시간 보정은 지역의 경도 차이에 따라 결정됩니다(경도 1도당 4분 차이).
-            
-            <전통 십이지지 시간>
-            - 자시(子時): 23:00 ~ 01:00 (쥐)
-            - 축시(丑時): 01:00 ~ 03:00 (소)
-            - 인시(寅時): 03:00 ~ 05:00 (호랑이)
-            - 묘시(卯時): 05:00 ~ 07:00 (토끼)
-            - 진시(辰時): 07:00 ~ 09:00 (용)
-            - 사시(巳時): 09:00 ~ 11:00 (뱀)
-            - 오시(午時): 11:00 ~ 13:00 (말)
-            - 미시(未時): 13:00 ~ 15:00 (양)
-            - 신시(申時): 15:00 ~ 17:00 (원숭이)
-            - 유시(酉時): 17:00 ~ 19:00 (닭)
-            - 술시(戌時): 19:00 ~ 21:00 (개)
-            - 해시(亥時): 21:00 ~ 23:00 (돼지)
-            """)
+        # 제출 버튼
+        submit_button = st.form_submit_button("💫 사주 계산하기", type="primary", use_container_width=True)
 
-# 사주 계산 처리 (submit_button 위치가 변경되었으므로 나머지 코드는 그대로 유지)
+# 사주 계산 처리
 if submit_button:
     try:
         # 입력된 날짜 가져오기
@@ -666,7 +686,7 @@ if submit_button:
         month = birth_date.month
         day = birth_date.day
         minute = birth_minute  # 분 값 추가
-        region = birth_region  # 지역 값 추가
+        region = st.session_state.selected_region  # 지역 값 추가
         
         # 원본 시간 저장
         original_time = (year, month, day, birth_hour, minute)
@@ -820,14 +840,14 @@ AI 사주 분석가가 만세력 기반으로 정확히 계산된 사주를 바�
 수백 가지 사주 패턴과 법칙을 학습한 AI가 사주의 특성과 운세를 상세히 풀이해드립니다.
 """)
 
-# UI 스타일 추가
+# 채팅 UI 스타일 추가
 st.markdown("""
 <style>
 /* 채팅 컨테이너 스타일 */
 .chat-wrapper {
-    max-height: 400px;
+    max-height: 500px;
     overflow-y: auto;
-    padding: 15px;
+    padding: 20px;
     border-radius: 12px;
     background-color: #f9f9f9;
     margin-bottom: 20px;
@@ -845,13 +865,12 @@ st.markdown("""
     background-color: #DCF8C6;
     border-radius: 18px 18px 0 18px;
     padding: 12px 15px;
-    margin: 8px 0;
+    margin: 8px 0 8px auto;
     max-width: 80%;
-    float: right;
-    clear: both;
     box-shadow: 0 1px 2px rgba(0,0,0,0.1);
     word-wrap: break-word;
     color: #000000;
+    display: block;
 }
 
 /* 다크모드 사용자 메시지 */
@@ -867,81 +886,15 @@ st.markdown("""
     padding: 12px 15px;
     margin: 8px 0;
     max-width: 80%;
-    float: left;
-    clear: both;
     box-shadow: 0 1px 2px rgba(0,0,0,0.1);
     word-wrap: break-word;
     color: #000000;
+    white-space: pre-wrap;
 }
 
 /* 다크모드 어시스턴트 메시지 */
 [data-theme="dark"] .assistant-bubble {
     background-color: #444654;
-    color: #ffffff;
-}
-
-/* float 정리용 */
-.clearfix::after {
-    content: "";
-    clear: both;
-    display: table;
-}
-
-/* 입력창 스타일 */
-.chat-input-container {
-    display: flex;
-    align-items: center;
-    margin-top: 10px;
-    margin-bottom: 20px;
-    background: #f0f2f6;
-    border-radius: 20px;
-    padding: 5px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.1);
-}
-
-/* 다크모드 입력창 */
-[data-theme="dark"] .chat-input-container {
-    background: #3b3b3b;
-}
-
-/* 전송 버튼 */
-.chat-send-btn {
-    background-color: #4F46E5;
-    color: white;
-    border-radius: 50%;
-    width: 40px;
-    height: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.12);
-}
-
-/* 다크모드 전송 버튼 */
-[data-theme="dark"] .chat-send-btn {
-    background-color: #6366F1;
-}
-
-/* 초기화 버튼 */
-.stButton > button {
-    background-color: #4F46E5;
-    color: white;
-    border-radius: 6px;
-    padding: 0.5rem 1rem;
-    font-weight: 500;
-    border: none;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
-}
-
-.stButton > button:hover {
-    background-color: #6366F1;
-    box-shadow: 0 3px 6px rgba(0,0,0,0.16), 0 3px 6px rgba(0,0,0,0.23);
-}
-
-/* 다크모드에서 info 메시지 스타일 개선 */
-[data-theme="dark"] .element-container .stAlert {
-    background-color: rgba(38, 39, 48, 0.8);
     color: #ffffff;
 }
 </style>
@@ -974,14 +927,12 @@ else:
         # 모든 메시지와 관련 상태 초기화
         reset_chat()
 
-    # 채팅 메시지 표시 - 스크롤 가능한 컨테이너
+    # 채팅 메시지 표시 영역
     st.markdown('<div class="chat-wrapper">', unsafe_allow_html=True)
-    chat_container = st.container()
     
-    with chat_container:
-        if not st.session_state.messages:
-            st.info("👋 사주에 대해 궁금한 점을 물어보세요.")
-        
+    if not st.session_state.messages:
+        st.info("👋 사주에 대해 궁금한 점을 물어보세요!")
+    else:
         # 메시지 표시
         for msg in st.session_state.messages:
             try:
@@ -990,7 +941,6 @@ else:
                     
                 msg_role = msg.get("role", "")
                 msg_content = msg.get("content", "")
-                msg_id = msg.get("id", str(uuid.uuid4()))
                 
                 if not msg_content:  # 내용이 없으면 표시하지 않음
                     continue
@@ -999,22 +949,18 @@ else:
                 safe_content = html.escape(msg_content).replace('\n', '<br/>')
                     
                 if msg_role == "user":
-                    # 사용자 메시지 표시 - 오른쪽 정렬
+                    # 사용자 메시지 표시
                     st.markdown(f"""
-                    <div class="clearfix">
-                        <div class="user-bubble">
-                            {safe_content}
-                        </div>
+                    <div class="user-bubble">
+                        {safe_content}
                     </div>
                     """, unsafe_allow_html=True)
                 elif msg_role == "assistant":
-                    # 어시스턴트 메시지 표시 - 왼쪽 정렬
+                    # 어시스턴트 메시지 표시
                     st.markdown(f"""
-                    <div class="clearfix">
-                        <div class="assistant-bubble">
-                            <strong>🔮 사주 분석가</strong><br/>
-                            {safe_content}
-                        </div>
+                    <div class="assistant-bubble">
+                        <strong>🔮 사주 분석가</strong><br/>
+                        {safe_content}
                     </div>
                     """, unsafe_allow_html=True)
             except Exception as e:
@@ -1024,99 +970,36 @@ else:
     
     st.markdown('</div>', unsafe_allow_html=True)
     
-    # 입력 영역 (하단에 고정)
-    st.markdown("### 질문하기")
+    # 입력 영역
+    st.markdown("---")
+    st.markdown("**질문을 입력하세요:**")
     
-    # 입력 필드와 버튼 분리
+    # 입력 상태 초기화
+    if 'chat_input_key' not in st.session_state:
+        st.session_state.chat_input_key = 0
+    
+    # 입력 필드와 버튼
     col1, col2 = st.columns([5, 1])
     
-    # 콜백 함수 - 입력 처리를 위한 상태 변수 초기화
-    if 'submit_clicked' not in st.session_state:
-        st.session_state.submit_clicked = False
-    if 'last_input' not in st.session_state:
-        st.session_state.last_input = ""
-    
-    # 입력값 변경 감지 콜백 함수
-    def process_input():
-        # 입력값이 변경되면 세션 상태에 저장
-        if "temp_input" in st.session_state:
-            st.session_state.input_text = st.session_state.temp_input
-    
-    # 버튼 콜백 함수 
-    def handle_submit():
-        # 입력값이 있고 이전 입력과 다른 경우에만 처리
-        current_input = st.session_state.input_text.strip()
-        if current_input and current_input != st.session_state.last_input:
-            st.session_state.submit_clicked = True
-            st.session_state.last_input = current_input
-            # 입력값 초기화를 위한 값 설정
-            st.session_state.input_text = ""
-    
-    # 채팅 인터페이스 디자인
-    st.markdown("""
-    <style>
-    .chat-input-container {
-        display: flex;
-        align-items: center;
-        margin-top: 10px;
-        margin-bottom: 20px;
-        background: #f0f2f6;
-        border-radius: 20px;
-        padding: 5px;
-        box-shadow: 0 1px 4px rgba(0,0,0,0.1);
-    }
-    .stTextArea textarea {
-        border-radius: 18px;
-        border: none;
-        padding: 10px 15px;
-        margin-right: 5px;
-        background: white;
-        box-shadow: none;
-    }
-    .chat-send-btn {
-        background-color: #4F46E5;
-        color: white;
-        border-radius: 50%;
-        width: 40px;
-        height: 40px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.12);
-    }
-    </style>
-    <div class="chat-input-container">
-    """, unsafe_allow_html=True)
-    
-    # 입력 필드 (세션 상태를 통해 관리)
     with col1:
-        st.text_area(
-            "사주에 대해 궁금한 점을 입력하세요:",
-            key="temp_input",
-            value=st.session_state.input_text,
-            on_change=process_input,
-            height=50,
-            placeholder="사주에 대해 궁금한 점을 입력하세요",
+        user_input = st.text_area(
+            "질문 입력",
+            height=80,
+            placeholder="예: 제 성격은 어떤가요? 건강운은 어떤가요? 적합한 직업은 무엇인가요?",
+            key=f"chat_input_{st.session_state.chat_input_key}",
             label_visibility="collapsed"
         )
     
-    # 제출 버튼
     with col2:
-        # 파란색 원 화살표 버튼 제거하고 대화하기 버튼만 유지
-        st.button("대화하기", on_click=handle_submit, key="submit_chat_button", help="메시지 전송", type="primary")
+        send_button = st.button("📨 전송", type="primary", use_container_width=True)
     
-    st.markdown("</div>", unsafe_allow_html=True)
+    # 팁 표시
+    st.caption("💡 **도움말**: 궁금한 점을 자유롭게 물어보세요. AI가 사주 데이터를 바탕으로 답변해드립니다.")
     
-    # 팁
-    st.caption("💡 **팁**: 궁금한 점을 물어보세요. 예: '제 성격은 어떤가요?', '건강운은 어떤가요?', '적합한 직업은 무엇인가요?'")
-    
-    # 버튼이 클릭되었고 입력값이 있는 경우 처리
-    if st.session_state.submit_clicked:
-        # 마지막 저장된 입력값 사용
-        current_input = st.session_state.last_input.strip()
-        if current_input:
-            # 메시지 제출
-            submit_message(current_input)
-        # 제출 플래그 초기화
-        st.session_state.submit_clicked = False
+    # 메시지 전송 처리
+    if send_button and user_input and user_input.strip():
+        # 메시지 제출 (submit_message 내부에서 rerun 호출됨)
+        submit_message(user_input.strip())
+        
+        # 입력 키 증가 (입력 필드 초기화)
+        st.session_state.chat_input_key += 1

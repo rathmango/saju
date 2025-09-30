@@ -12,7 +12,7 @@ CITY_LONGITUDE = {
     "인천광역시": 126.70,  # 인천
     "광주광역시": 126.85,  # 광주
     "대전광역시": 127.38,  # 대전
-    "울산광역시": 129.30,  # 울산
+    "울산광역시": 129.19,  # 울산
     "세종특별자치시": 127.28,  # 세종
     "제주특별자치도 제주시": 126.53,  # 제주
     "경기도 수원시": 127.00,  # 수원
@@ -56,8 +56,9 @@ def adjust_time_for_manseryeok(year, month, day, hour, minute, region):
     time_diff_minutes = longitude_diff * 4  # 1도당 약 4분의 시차
     
     # 분 단위로 시간 계산
+    # 지역이 표준 경도보다 서쪽이면 태양시가 느리므로 시간을 빼야 함
     total_minutes = hour * 60 + minute
-    adjusted_minutes = total_minutes + time_diff_minutes
+    adjusted_minutes = total_minutes - time_diff_minutes
     
     # 날짜 변경 처리
     adjusted_days = day
@@ -143,10 +144,11 @@ def format_time_adjustment(original_time, adjusted_time, region):
     time_diff_minutes = int(time_diff_abs % 60)
     
     # 시차 문자열
+    # 지역이 표준보다 서쪽(경도가 작음)이면 태양시가 느림
     if time_diff >= 0:
-        diff_str = f"느림 (약 {time_diff_hours}시간 {time_diff_minutes:02d}분)"
+        diff_str = f"태양시 느림 (표준시 기준 -{time_diff_hours}시간 {time_diff_minutes:02d}분 보정)"
     else:
-        diff_str = f"빠름 (약 {time_diff_hours}시간 {time_diff_minutes:02d}분)"
+        diff_str = f"태양시 빠름 (표준시 기준 +{time_diff_hours}시간 {time_diff_minutes:02d}분 보정)"
     
     # 원본 시간과 보정된 시간이 다른지 확인
     is_different = (orig_year != adj_year or orig_month != adj_month or 
